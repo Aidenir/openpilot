@@ -4,7 +4,7 @@ import gc
 import cereal.messaging as messaging
 from openpilot.common.params import Params
 from openpilot.common.realtime import set_realtime_priority
-from openpilot.selfdrive.monitoring.helpers import DriverMonitoring
+from openpilot.selfdrive.monitoring.helpers import DriverMonitoring, DRIVER_MONITOR_SETTINGS
 
 
 def dmonitoringd_thread():
@@ -15,7 +15,9 @@ def dmonitoringd_thread():
   pm = messaging.PubMaster(['driverMonitoringState'])
   sm = messaging.SubMaster(['driverStateV2', 'liveCalibration', 'carState', 'controlsState', 'modelV2', 'carControl'], poll='driverStateV2')
 
-  DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
+  # Create settings with user-configured DM timing values
+  settings = DRIVER_MONITOR_SETTINGS(params=params)
+  DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), settings=settings, always_on=params.get_bool("AlwaysOnDM"))
 
   # FrogPilot variables
   driver_view_enabled = params.get_bool("IsDriverViewEnabled")
@@ -37,9 +39,11 @@ def dmonitoringd_thread():
     dat = DM.get_state_packet(valid=valid or driver_view_enabled)
     pm.send('driverMonitoringState', dat)
 
-    # load live always-on toggle
+    # load live always-on toggle and DM timing settings
     if sm['driverStateV2'].frameId % 40 == 1:
       DM.always_on = params.get_bool("AlwaysOnDM")
+      # Reload DM timing settings every ~2 seconds to allow live updates
+      DM.settings = DRIVER_MONITOR_SETTINGS(params=params)
 
     # save rhd virtual toggle every 5 mins
     if (sm['driverStateV2'].frameId % 6000 == 0 and

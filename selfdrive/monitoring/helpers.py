@@ -18,15 +18,40 @@ EventName = car.CarEvent.EventName
 # ******************************************************************************************
 
 class DRIVER_MONITOR_SETTINGS:
-  def __init__(self):
+  def __init__(self, params=None):
     self._DT_DMON = DT_DMON
+
+    # Read user-configured delays from params (if available)
+    if params is not None:
+      try:
+        green_delay = int(params.get("DMGreenAlertDelay", encoding='utf-8') or "5")
+        beeping_delay = int(params.get("DMBeepingDelay", encoding='utf-8') or "15")
+        critical_delay = int(params.get("DMCriticalDelay", encoding='utf-8') or "30")
+      except (ValueError, TypeError):
+        # Fallback to defaults if param parsing fails
+        green_delay = 5
+        beeping_delay = 15
+        critical_delay = 30
+    else:
+      # Default values when no params provided
+      green_delay = 5
+      beeping_delay = 15
+      critical_delay = 30
+
+    # Validate and clamp values
+    critical_delay = max(5, min(120, critical_delay))
+    green_delay = max(1, min(critical_delay - 2, green_delay))
+    beeping_delay = max(green_delay + 1, min(critical_delay - 1, beeping_delay))
+
+    # Convert user-friendly delays to backwards format
+    self._DISTRACTED_TIME = float(critical_delay)
+    self._DISTRACTED_PRE_TIME_TILL_TERMINAL = float(critical_delay - green_delay)
+    self._DISTRACTED_PROMPT_TIME_TILL_TERMINAL = float(critical_delay - beeping_delay)
+
     # ref (page15-16): https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:42018X1947&rid=2
     self._AWARENESS_TIME = 30. # passive wheeltouch total timeout
     self._AWARENESS_PRE_TIME_TILL_TERMINAL = 15.
     self._AWARENESS_PROMPT_TIME_TILL_TERMINAL = 6.
-    self._DISTRACTED_TIME = 11. # active monitoring total timeout
-    self._DISTRACTED_PRE_TIME_TILL_TERMINAL = 8.
-    self._DISTRACTED_PROMPT_TIME_TILL_TERMINAL = 6.
 
     self._FACE_THRESHOLD = 0.7
     self._EYE_THRESHOLD = 0.65
