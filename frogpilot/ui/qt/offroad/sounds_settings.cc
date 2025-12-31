@@ -51,6 +51,12 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
     {"WarningSoftVolume", tr("Warning Soft Volume"), tr("<b>Set the volume for softer warnings about potential risks.</b><br><br>Examples include: \"BRAKE! Risk of Collision\", \"Steering Temporarily Unavailable\"."), ""},
     {"WarningImmediateVolume", tr("Warning Immediate Volume"), tr("<b>Set the volume for the loudest warnings that require urgent attention.</b><br><br>Examples include: \"DISENGAGE IMMEDIATELY — Driver Distracted\", \"DISENGAGE IMMEDIATELY — Driver Unresponsive\"."), ""},
 
+    {"DMGreenAlertDelay", tr("Green Alert Delay"), tr("<b>Seconds after looking away before the green 'Pay Attention' visual alert appears.</b>"), ""},
+    {"DMBeepingDelay", tr("Beeping Alert Delay"), tr("<b>Seconds after looking away before the orange alert and beeping starts.</b>"), ""},
+    {"DMCriticalDelay", tr("Critical Alert Delay"), tr("<b>Seconds after looking away before the red 'DISENGAGE IMMEDIATELY' alert appears.</b>"), ""},
+
+    {"MassageReminder", tr("Massage Reminder"), tr("<b>Enable periodic reminders to turn on the massage function.</b> A gentle prompt will appear every 10 minutes while driving."), ""},
+
     {"CustomAlerts", tr("FrogPilot Alerts"), tr("<b>Optional FrogPilot alerts</b> that highlight driving events in a more noticeable way."), "../../frogpilot/assets/toggle_icons/icon_green_light.png"},
     {"GoatScream", tr("Goat Scream"), tr("<b>Play the infamous \"Goat Scream\" when the steering controller reaches its limit.</b> Based on the \"Turn Exceeds Steering Limit\" event."), ""},
     {"GreenLightAlert", tr("Green Light Alert"), tr("<b>Play an alert when the model predicts a red light has turned green.</b><br><br><i><b>Disclaimer</b>: openpilot does not explicitly detect traffic lights. This alert is based on end-to-end model predictions from camera input and may trigger even when the light has not changed.</i>"), ""},
@@ -79,6 +85,13 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
       } else {
         soundsToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0, 101, QString(), volumeLabels, 1, true, {}, alertButton, false, false);
       }
+
+    } else if (param == "DMGreenAlertDelay") {
+      soundsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1.0f, 30.0f, tr(" seconds"), std::map<float, QString>(), 1.0f);
+    } else if (param == "DMBeepingDelay") {
+      soundsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1.0f, 60.0f, tr(" seconds"), std::map<float, QString>(), 1.0f);
+    } else if (param == "DMCriticalDelay") {
+      soundsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5.0f, 120.0f, tr(" seconds"), std::map<float, QString>(), 1.0f);
 
     } else if (param == "CustomAlerts") {
       FrogPilotManageControl *customAlertsToggle = new FrogPilotManageControl(param, title, desc, icon);

@@ -1,6 +1,5 @@
 #include "frogpilot/ui/qt/offroad/data_settings.h"
 #include "frogpilot/ui/qt/offroad/device_settings.h"
-#include "frogpilot/ui/qt/offroad/driver_monitoring_settings.h"
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 #include "frogpilot/ui/qt/offroad/lateral_settings.h"
 #include "frogpilot/ui/qt/offroad/longitudinal_settings.h"
@@ -66,7 +65,6 @@ bool nnffLogFileExists(const QString &carFingerprint) {
 void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
   FrogPilotDataPanel *frogpilotDataPanel = new FrogPilotDataPanel(this);
   FrogPilotDevicePanel *frogpilotDevicePanel = new FrogPilotDevicePanel(this);
-  FrogPilotDriverMonitoringPanel *frogpilotDriverMonitoringPanel = new FrogPilotDriverMonitoringPanel(this);
   FrogPilotLateralPanel *frogpilotLateralPanel = new FrogPilotLateralPanel(this);
   FrogPilotLongitudinalPanel *frogpilotLongitudinalPanel = new FrogPilotLongitudinalPanel(this);
   FrogPilotMapsPanel *frogpilotMapsPanel = new FrogPilotMapsPanel(this);
@@ -82,7 +80,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
     {{tr("MANAGE"), frogpilotSoundsPanel}},
     {{tr("DRIVING MODEL"), frogpilotModelPanel}, {tr("GAS / BRAKE"), frogpilotLongitudinalPanel}, {tr("STEERING"), frogpilotLateralPanel}},
     {{tr("MAP DATA"), frogpilotMapsPanel}, {tr("NAVIGATION"), frogpilotNavigationPanel}},
-    {{tr("DATA"), frogpilotDataPanel}, {tr("DEVICE CONTROLS"), frogpilotDevicePanel}, {tr("DRIVER MONITORING"), frogpilotDriverMonitoringPanel}, {tr("UTILITIES"), new FrogPilotUtilitiesPanel(this)}},
+    {{tr("DATA"), frogpilotDataPanel}, {tr("DEVICE CONTROLS"), frogpilotDevicePanel}, {tr("UTILITIES"), new FrogPilotUtilitiesPanel(this)}},
     {{tr("APPEARANCE"), frogpilotVisualsPanel}, {tr("THEME"), frogpilotThemesPanel}},
     {{tr("VEHICLE SETTINGS"), frogpilotVehiclesPanel}, {tr("WHEEL CONTROLS"), frogpilotWheelPanel}}
   };

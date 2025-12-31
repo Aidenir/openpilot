@@ -155,6 +155,7 @@ class Controls:
     self.last_steering_pressed_frame = 0
     self.distance_traveled = 0
     self.last_functional_fan_frame = 0
+    self.last_massage_reminder_frame = 0
     self.events_prev = []
     self.current_alert_types = [ET.PERMANENT]
     self.logged_comm_issue = None
@@ -453,6 +454,12 @@ class Controls:
 
     if self.frogpilot_toggles.block_user:
       self.frogpilot_events.add(FrogPilotEventName.blockUser)
+
+    # Massage reminder - trigger every 10 minutes
+    if self.frogpilot_toggles.massage_reminder:
+      if (self.sm.frame - self.last_massage_reminder_frame) * DT_CTRL > 600.0:
+        self.frogpilot_events.add(FrogPilotEventName.massageReminder)
+        self.last_massage_reminder_frame = self.sm.frame
 
     # Remove already played events
     event_names = self.events.names

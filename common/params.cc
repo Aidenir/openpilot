@@ -410,6 +410,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"MapsSelected", PERSISTENT},
     {"MapSpeedLimit", CLEAR_ON_MANAGER_START},
     {"MapStyle", PERSISTENT},
+    {"MassageReminder", PERSISTENT},
     {"MaxDesiredAcceleration", PERSISTENT},
     {"MinimumBackupSize", PERSISTENT},
     {"MinimumLaneChangeSpeed", PERSISTENT},

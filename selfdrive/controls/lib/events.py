@@ -1090,6 +1090,14 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.MID, VisualAlert.none, AudibleAlert.prompt, 3.),
   },
 
+  FrogPilotEventName.massageReminder: {
+    ET.PERMANENT: Alert(
+      "Turn on massage",
+      "Time for a massage break",
+      AlertStatus.normal, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 3.),
+  },
+
   FrogPilotEventName.noLaneAvailable: {
     ET.WARNING: no_lane_available_alert,
   },

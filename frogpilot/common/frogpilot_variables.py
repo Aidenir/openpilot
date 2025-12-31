@@ -328,6 +328,7 @@ frogpilot_default_params: list[tuple[str, str | bytes, int, str]] = [
   ("MapGears", "0", 2, "0"),
   ("MapsSelected", "", 0, ""),
   ("MapStyle", "1", 2, "0"),
+  ("MassageReminder", "0", 0, "0"),
   ("MaxDesiredAcceleration", "4.0", 2, "2.0"),
   ("MinimumLaneChangeSpeed", str(LANE_CHANGE_SPEED_MIN / CV.MPH_TO_MS), 2, str(LANE_CHANGE_SPEED_MIN / CV.MPH_TO_MS)),
   ("Model", DEFAULT_MODEL + "_default", 1, DEFAULT_MODEL + "_default"),
@@ -730,6 +731,8 @@ class FrogPilotVariables:
     toggle.lead_departing_alert = toggle.custom_alerts and (params.get_bool("LeadDepartingAlert") if tuning_level >= level["LeadDepartingAlert"] else default.get_bool("LeadDepartingAlert"))
     toggle.loud_blindspot_alert = has_bsm and toggle.custom_alerts and (params.get_bool("LoudBlindspotAlert") if tuning_level >= level["LoudBlindspotAlert"] else default.get_bool("LoudBlindspotAlert"))
     toggle.speed_limit_changed_alert = toggle.custom_alerts and (params.get_bool("SpeedLimitChangedAlert") if tuning_level >= level["SpeedLimitChangedAlert"] else default.get_bool("SpeedLimitChangedAlert"))
+
+    toggle.massage_reminder = params.get_bool("MassageReminder") if tuning_level >= level["MassageReminder"] else default.get_bool("MassageReminder")
 
     toggle.custom_personalities = toggle.openpilot_longitudinal and params.get_bool("CustomPersonalities") if tuning_level >= level["CustomPersonalities"] else default.get_bool("CustomPersonalities")
     aggressive_profile = toggle.custom_personalities and (params.get_bool("AggressivePersonalityProfile") if tuning_level >= level["AggressivePersonalityProfile"] else default.get_bool("AggressivePersonalityProfile"))
