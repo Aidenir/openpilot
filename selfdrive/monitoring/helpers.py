@@ -196,6 +196,17 @@ class DriverMonitoring:
   def _reset_events(self):
     self.current_events = Events()
 
+  def _update_thresholds(self):
+    """Recalculate thresholds based on current settings and monitoring mode"""
+    if self.active_monitoring_mode:
+      self.threshold_pre = self.settings._DISTRACTED_PRE_TIME_TILL_TERMINAL / self.settings._DISTRACTED_TIME
+      self.threshold_prompt = self.settings._DISTRACTED_PROMPT_TIME_TILL_TERMINAL / self.settings._DISTRACTED_TIME
+      self.step_change = self.settings._DT_DMON / self.settings._DISTRACTED_TIME
+    else:
+      self.threshold_pre = self.settings._AWARENESS_PRE_TIME_TILL_TERMINAL / self.settings._AWARENESS_TIME
+      self.threshold_prompt = self.settings._AWARENESS_PROMPT_TIME_TILL_TERMINAL / self.settings._AWARENESS_TIME
+      self.step_change = self.settings._DT_DMON / self.settings._AWARENESS_TIME
+
   def _set_timers(self, active_monitoring):
     if self.active_monitoring_mode and self.awareness <= self.threshold_prompt:
       if active_monitoring:
@@ -396,6 +407,14 @@ class DriverMonitoring:
   def get_state_packet(self, valid=True):
     # build driverMonitoringState packet
     dat = messaging.new_message('driverMonitoringState', valid=valid)
+
+    # Calculate time since distraction started (in seconds)
+    # awareness goes from 1.0 (fully attentive) to 0.0 (terminal)
+    if self.active_monitoring_mode:
+      distraction_time = (1.0 - self.awareness) * self.settings._DISTRACTED_TIME
+    else:
+      distraction_time = (1.0 - self.awareness) * self.settings._AWARENESS_TIME
+
     dat.driverMonitoringState = {
       "events": self.current_events.to_msg(),
       "faceDetected": self.face_detected,
@@ -413,6 +432,7 @@ class DriverMonitoring:
       "hiStdCount": self.hi_stds,
       "isActiveMode": self.active_monitoring_mode,
       "isRHD": self.wheel_on_right,
+      "distractionTime": float(distraction_time),
     }
     return dat
 

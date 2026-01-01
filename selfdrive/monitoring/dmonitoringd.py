@@ -44,6 +44,7 @@ def dmonitoringd_thread():
       DM.always_on = params.get_bool("AlwaysOnDM")
       # Reload DM timing settings every ~2 seconds to allow live updates
       DM.settings = DRIVER_MONITOR_SETTINGS(params=params)
+      DM._update_thresholds()
 
     # save rhd virtual toggle every 5 mins
     if (sm['driverStateV2'].frameId % 6000 == 0 and
