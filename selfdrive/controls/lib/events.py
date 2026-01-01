@@ -1092,8 +1092,8 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
 
   FrogPilotEventName.massageReminder: {
     ET.PERMANENT: Alert(
-      "Turn on massage",
-      "Time for a massage break",
+      "Glöm inte massagen",
+      "",
       AlertStatus.normal, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 3.),
   },

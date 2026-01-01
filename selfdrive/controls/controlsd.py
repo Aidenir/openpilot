@@ -156,6 +156,8 @@ class Controls:
     self.distance_traveled = 0
     self.last_functional_fan_frame = 0
     self.last_massage_reminder_frame = 0
+    self.drive_start_frame = 0
+    self.massage_reminder_first_sent = False
     self.events_prev = []
     self.current_alert_types = [ET.PERMANENT]
     self.logged_comm_issue = None
@@ -455,9 +457,18 @@ class Controls:
     if self.frogpilot_toggles.block_user:
       self.frogpilot_events.add(FrogPilotEventName.blockUser)
 
-    # Massage reminder - trigger every 10 minutes
-    if self.frogpilot_toggles.massage_reminder:
-      if (self.sm.frame - self.last_massage_reminder_frame) * DT_CTRL > 600.0:
+    # Massage reminder - trigger 1 minute after drive start, then every 10 minutes
+    if self.frogpilot_toggles.massage_reminder and self.enabled:
+      time_since_drive_start = (self.sm.frame - self.drive_start_frame) * DT_CTRL
+      time_since_last_reminder = (self.sm.frame - self.last_massage_reminder_frame) * DT_CTRL
+
+      # First reminder: 1 minute after drive start
+      if not self.massage_reminder_first_sent and time_since_drive_start >= 60.0:
+        self.frogpilot_events.add(FrogPilotEventName.massageReminder)
+        self.last_massage_reminder_frame = self.sm.frame
+        self.massage_reminder_first_sent = True
+      # Subsequent reminders: every 10 minutes
+      elif self.massage_reminder_first_sent and time_since_last_reminder >= 600.0:
         self.frogpilot_events.add(FrogPilotEventName.massageReminder)
         self.last_massage_reminder_frame = self.sm.frame
 
@@ -612,8 +623,20 @@ class Controls:
           self.v_cruise_helper.initialize_v_cruise(CS, self.experimental_mode, self.sm['frogpilotPlan'].slcSpeedLimit + self.sm['frogpilotPlan'].slcSpeedLimitOffset, self.frogpilot_toggles)
 
     # Check if openpilot is engaged and actuators are enabled
+    enabled_prev = self.enabled
     self.enabled = self.state in ENABLED_STATES
     self.active = self.state in ACTIVE_STATES
+
+    # Track drive start and reset massage reminder state
+    if self.enabled and not enabled_prev:
+      # Drive just started
+      self.drive_start_frame = self.sm.frame
+      self.massage_reminder_first_sent = False
+    elif not self.enabled and enabled_prev:
+      # Drive just ended, reset state
+      self.drive_start_frame = 0
+      self.massage_reminder_first_sent = False
+
     if self.active or self.sm['frogpilotCarState'].alwaysOnLateralEnabled:
       self.current_alert_types.append(ET.WARNING)
 
