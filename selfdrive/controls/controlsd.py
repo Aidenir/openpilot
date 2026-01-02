@@ -158,6 +158,7 @@ class Controls:
     self.drive_start_time = 0.0
     self.last_massage_reminder_time = 0.0
     self.massage_reminder_first_sent = False
+    self.ignition_was_on = False
     self.events_prev = []
     self.current_alert_types = [ET.PERMANENT]
     self.logged_comm_issue = None
@@ -457,13 +458,14 @@ class Controls:
     if self.frogpilot_toggles.block_user:
       self.frogpilot_events.add(FrogPilotEventName.blockUser)
 
-    # Massage reminder - trigger 1 minute after drive start, then every 10 minutes
-    if self.frogpilot_toggles.massage_reminder and self.enabled:
+    # Massage reminder - trigger 1 minute after drive starts, then every 10 minutes
+    # Resets when ignition is turned off (end of drive)
+    if self.frogpilot_toggles.massage_reminder and self.drive_start_time > 0.0:
       current_time = time.monotonic()
       time_since_drive_start = current_time - self.drive_start_time
       time_since_last_reminder = current_time - self.last_massage_reminder_time
 
-      # First reminder: 1 minute after drive start
+      # First reminder: 1 minute after drive started
       if not self.massage_reminder_first_sent and time_since_drive_start >= 60.0:
         self.frogpilot_events.add(FrogPilotEventName.massageReminder)
         self.last_massage_reminder_time = current_time
@@ -628,15 +630,20 @@ class Controls:
     self.enabled = self.state in ENABLED_STATES
     self.active = self.state in ACTIVE_STATES
 
-    # Track drive start and reset massage reminder state
-    if self.enabled and not enabled_prev:
-      # Drive just started
-      self.drive_start_time = time.monotonic()
-      self.massage_reminder_first_sent = False
-    elif not self.enabled and enabled_prev:
-      # Drive just ended, reset state
+    # Track ignition state to detect new drives
+    ignition_on = any(ps.ignitionLine or ps.ignitionCan for ps in self.sm['pandaStates'])
+
+    # Reset massage reminder when ignition turns off (end of drive)
+    if self.ignition_was_on and not ignition_on:
       self.drive_start_time = 0.0
+      self.last_massage_reminder_time = 0.0
       self.massage_reminder_first_sent = False
+
+    # Start timer when first enabled after ignition on
+    if self.enabled and not enabled_prev and self.drive_start_time == 0.0:
+      self.drive_start_time = time.monotonic()
+
+    self.ignition_was_on = ignition_on
 
     if self.active or self.sm['frogpilotCarState'].alwaysOnLateralEnabled:
       self.current_alert_types.append(ET.WARNING)
