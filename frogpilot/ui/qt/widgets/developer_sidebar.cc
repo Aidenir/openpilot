@@ -62,11 +62,12 @@ void DeveloperSidebar::updateState(const UIState &s, const FrogPilotUIState &fs)
   }
 
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
+  const SubMaster &sm = *(s.sm);
   const SubMaster &fpsm = *(fs.sm);
 
   const cereal::CarControl::Reader &carControl = fpsm["carControl"].getCarControl();
   const cereal::CarState::Reader &carState = fpsm["carState"].getCarState();
-  const cereal::DriverMonitoringState::Reader &driverMonitoring = fpsm["driverMonitoringState"].getDriverMonitoringState();
+  const cereal::DriverMonitoringState::Reader &driverMonitoring = sm["driverMonitoringState"].getDriverMonitoringState();
   const cereal::FrogPilotPlan::Reader &frogpilotPlan = fpsm["frogpilotPlan"].getFrogpilotPlan();
   const cereal::LiveDelayData::Reader &liveDelay = fpsm["liveDelay"].getLiveDelay();
   const cereal::LiveParametersData::Reader &liveParameters = fpsm["liveParameters"].getLiveParameters();
