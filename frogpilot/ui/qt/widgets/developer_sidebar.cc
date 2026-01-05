@@ -121,6 +121,12 @@ void DeveloperSidebar::updateState(const UIState &s, const FrogPilotUIState &fs)
   actuatorAccelerationStatus = ItemStatus(QPair<QString, QString>(tr("ACT ACCEL"), QString::number(carControl.getActuators().getAccel() * accelerationConversion, 'f', 2) + accelerationUnit), metricColor);
   awarenessStatus = ItemStatus(QPair<QString, QString>(tr("AWARENESS"), QString::number(driverMonitoring.getAwarenessStatus() * 100.0f, 'f', 1) + "%"), metricColor);
   dangerFactorStatus = ItemStatus(QPair<QString, QString>(tr("DANGER %"), QString::number(frogpilotPlan.getDangerFactor() * 100.0f, 'f', 2) + "%"), metricColor);
+
+  float massageTimeLeft = frogpilotPlan.getMassageReminderTimeLeft();
+  int minutes = static_cast<int>(massageTimeLeft) / 60;
+  int seconds = static_cast<int>(massageTimeLeft) % 60;
+  QString massageTimeStr = QString("%1:%2").arg(minutes).arg(seconds, 2, 10, QChar('0'));
+  massageReminderStatus = ItemStatus(QPair<QString, QString>(tr("MASSAGE IN"), massageTimeStr), metricColor);
   dangerJerkStatus = ItemStatus(QPair<QString, QString>(tr("DANGER JERK"), QString::number(frogpilotPlan.getDangerJerk())), metricColor);
   delayStatus = ItemStatus(QPair<QString, QString>(tr("STEER DELAY"), QString::number(liveDelay.getLateralDelay(), 'f', 5)), metricColor);
   frictionStatus = ItemStatus(QPair<QString, QString>(tr("FRICTION"), QString::number(liveTorqueParameters.getFrictionCoefficientFiltered(), 'f', 5)), metricColor);
@@ -162,6 +168,7 @@ void DeveloperSidebar::paintEvent(QPaintEvent *event) {
   metricMap.insert(15, &dangerJerkStatus);
   metricMap.insert(16, &speedJerkStatus);
   metricMap.insert(17, &awarenessStatus);
+  metricMap.insert(18, &massageReminderStatus);
 
   int count = 0;
   for (size_t i = 0; i < metricAssignments.size(); ++i) {

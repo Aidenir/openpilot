@@ -460,6 +460,7 @@ class Controls:
 
     # Massage reminder - trigger 1 minute after drive starts, then every 10 minutes
     # Resets when ignition is turned off (end of drive)
+    massage_reminder_time_left = 0.0
     if self.frogpilot_toggles.massage_reminder and self.drive_start_time > 0.0:
       current_time = time.monotonic()
       time_since_drive_start = current_time - self.drive_start_time
@@ -474,6 +475,14 @@ class Controls:
       elif self.massage_reminder_first_sent and time_since_last_reminder >= 600.0:
         self.frogpilot_events.add(FrogPilotEventName.massageReminder)
         self.last_massage_reminder_time = current_time
+
+      # Calculate time remaining until next reminder
+      if not self.massage_reminder_first_sent:
+        massage_reminder_time_left = max(0.0, 60.0 - time_since_drive_start)
+      else:
+        massage_reminder_time_left = max(0.0, 600.0 - time_since_last_reminder)
+
+    params_memory.put("MassageReminderTimeLeft", str(massage_reminder_time_left))
 
     # Remove already played events
     event_names = self.events.names

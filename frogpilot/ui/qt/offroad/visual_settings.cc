@@ -216,6 +216,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
         {15, tr("Longitudinal MPC Jerk: Danger Zone")},
         {16, tr("Longitudinal MPC Jerk: Speed Control")},
         {17, tr("Driver Monitoring: Awareness")},
+        {18, tr("Massage Reminder: Time Until Next")},
       };
 
       ButtonControl *metricToggle = new ButtonControl(title, tr("SELECT"), desc);
