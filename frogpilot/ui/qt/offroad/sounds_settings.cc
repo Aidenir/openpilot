@@ -80,7 +80,10 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent, bool
     } else {
       soundsList->addItem(soundsToggle);
 
-      parentKeys.insert(param);
+      // Only add FrogPilotManageControl widgets (parent toggles) to parentKeys
+      if (qobject_cast<FrogPilotManageControl*>(soundsToggle)) {
+        parentKeys.insert(param);
+      }
     }
 
     if (FrogPilotManageControl *frogPilotManageToggle = qobject_cast<FrogPilotManageControl*>(soundsToggle)) {
@@ -163,15 +166,17 @@ void FrogPilotSoundsPanel::updateState(const UIState &s) {
 }
 
 void FrogPilotSoundsPanel::updateToggles() {
+  // First, hide all parent keys (they'll be shown if any of their children are visible)
   for (auto &[key, toggle] : toggles) {
     if (parentKeys.contains(key)) {
       toggle->setVisible(false);
     }
   }
 
+  // Then, handle visibility for all other toggles
   for (auto &[key, toggle] : toggles) {
     if (parentKeys.contains(key)) {
-      continue;
+      continue;  // Skip parent keys - they're handled by their children
     }
 
     bool setVisible = parent->tuningLevel >= parent->frogpilotToggleLevels[key].toDouble();
@@ -186,6 +191,7 @@ void FrogPilotSoundsPanel::updateToggles() {
 
     toggle->setVisible(setVisible);
 
+    // If a sub-panel child is visible, make its parent visible
     if (setVisible) {
       if (alertVolumeControlKeys.contains(key)) {
         toggles["AlertVolumeControl"]->setVisible(true);

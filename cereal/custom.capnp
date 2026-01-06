@@ -143,6 +143,7 @@ struct FrogPilotOnroadEvent @0xa5cd762cd951a455 {
     vCruise69 @26;
     yourFrogTriedToKillMe @27;
     youveGotMail @28;
+    massageReminder @29;
   }
 }
 
@@ -186,6 +187,7 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   mapdSuggestedSpeed @36 :Float32;
   nextSpeedBumpDistance @37 :Float32;
   speedBumpAreaCount @38 :Int32;
+  massageReminderTimeLeft @39 :Float32;
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {

@@ -303,6 +303,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"MapDeceleration", {PERSISTENT, BOOL, "0", "0", 1}},
     {"MapdSettings", {PERSISTENT, JSON, "{}", "{}"}},
     {"MapGears", {PERSISTENT, BOOL, "0", "0", 2}},
+    {"MassageReminder", {PERSISTENT, BOOL, "0", "0", 0}},
+    {"MassageReminderTimeLeft", {CLEAR_ON_MANAGER_START, FLOAT, "0.0", "0.0"}},
     {"MapsSelected", {PERSISTENT, STRING, "", "", 0}},
     {"MapSpeedLimit", {CLEAR_ON_MANAGER_START, FLOAT, "0.0", "0.0"}},
     {"MaxDesiredAcceleration", {PERSISTENT, FLOAT, "4.0", "2.0", 2}},

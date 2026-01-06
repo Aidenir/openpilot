@@ -171,6 +171,13 @@ class SelfdriveD:
       self.startup_event = FrogPilotEventName.blockUser
       sentry.capture_message("Blocked user from using the development branch", level="info")
 
+    self.params_memory = Params(memory=True)
+
+    self.drive_start_time = 0.0
+    self.last_massage_reminder_time = 0.0
+    self.massage_reminder_first_sent = False
+    self.ignition_was_on = False
+
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
 
@@ -472,6 +479,29 @@ class SelfdriveD:
     # FrogPilot variables
     self.frogpilot_events.add_from_msg(self.sm['frogpilotPlan'].frogpilotEvents)
 
+    # Massage reminder - first at 1 minute into the drive, then every 10 minutes.
+    # Reset when the ignition goes off (see step()).
+    massage_reminder_time_left = 0.0
+    if self.frogpilot_toggles.massage_reminder and self.drive_start_time > 0.0:
+      current_time = time.monotonic()
+      time_since_drive_start = current_time - self.drive_start_time
+      time_since_last_reminder = current_time - self.last_massage_reminder_time
+
+      if not self.massage_reminder_first_sent and time_since_drive_start >= 60.0:
+        self.frogpilot_events.add(FrogPilotEventName.massageReminder)
+        self.last_massage_reminder_time = current_time
+        self.massage_reminder_first_sent = True
+      elif self.massage_reminder_first_sent and time_since_last_reminder >= 600.0:
+        self.frogpilot_events.add(FrogPilotEventName.massageReminder)
+        self.last_massage_reminder_time = current_time
+
+      if not self.massage_reminder_first_sent:
+        massage_reminder_time_left = max(0.0, 60.0 - time_since_drive_start)
+      else:
+        massage_reminder_time_left = max(0.0, 600.0 - time_since_last_reminder)
+
+    self.params_memory.put("MassageReminderTimeLeft", str(massage_reminder_time_left))
+
     if self.frogpilot_toggles.conditional_experimental_mode:
       self.experimental_mode = self.sm['frogpilotPlan'].experimentalMode
     else:
@@ -599,8 +629,19 @@ class SelfdriveD:
   def step(self):
     CS = self.data_sample()
     self.update_events(CS)
+    enabled_prev = self.enabled
     if not self.CP.passive and self.initialized:
       self.enabled, self.active = self.state_machine.update(self.events, self.frogpilot_events, self.sm['frogpilotCarState'].alwaysOnLateralEnabled)
+
+    # Track ignition so the massage reminder restarts each drive
+    ignition_on = any(ps.ignitionLine or ps.ignitionCan for ps in self.sm['pandaStates'])
+    if self.ignition_was_on and not ignition_on:
+      self.drive_start_time = 0.0
+      self.last_massage_reminder_time = 0.0
+      self.massage_reminder_first_sent = False
+    if self.enabled and not enabled_prev and self.drive_start_time == 0.0:
+      self.drive_start_time = time.monotonic()
+    self.ignition_was_on = ignition_on
     self.update_alerts(CS)
 
     self.publish_selfdriveState(CS)

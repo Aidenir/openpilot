@@ -1158,6 +1158,14 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.MID, VisualAlert.none, AudibleAlert.prompt, 3.),
   },
 
+  FrogPilotEventName.massageReminder: {
+    ET.PERMANENT: Alert(
+      "Glöm inte massagen",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 10.),
+  },
+
   FrogPilotEventName.nnffLoaded: {
     ET.PERMANENT: nnff_loaded_alert,
   },

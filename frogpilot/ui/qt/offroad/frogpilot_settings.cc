@@ -1,3 +1,4 @@
+#include "frogpilot/ui/qt/offroad/aidenirs_settings.h"
 #include "frogpilot/ui/qt/offroad/data_settings.h"
 #include "frogpilot/ui/qt/offroad/device_settings.h"
 #include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
@@ -63,6 +64,7 @@ bool nnffLogFileExists(const QString &carFingerprint) {
 }
 
 void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
+  AidenirsSettingsPanel *aidenirsSettingsPanel = new AidenirsSettingsPanel(this);
   FrogPilotDataPanel *frogpilotDataPanel = new FrogPilotDataPanel(this, !shownDescriptions.value("FrogPilotDataPanel").toBool(false));
   FrogPilotDevicePanel *frogpilotDevicePanel = new FrogPilotDevicePanel(this, !shownDescriptions.value("FrogPilotDevicePanel").toBool(false));
   FrogPilotLateralPanel *frogpilotLateralPanel = new FrogPilotLateralPanel(this, !shownDescriptions.value("FrogPilotLateralPanel").toBool(false));
@@ -83,7 +85,8 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
     {{tr("MAP DATA"), frogpilotMapsPanel}, {tr("NAVIGATION"), frogpilotNavigationPanel}},
     {{tr("DATA"), frogpilotDataPanel}, {tr("DEVICE CONTROLS"), frogpilotDevicePanel}, {tr("UTILITIES"), frogpilotUtilitiesPanel}},
     {{tr("APPEARANCE"), frogpilotVisualsPanel}, {tr("THEME"), frogpilotThemesPanel}},
-    {{tr("VEHICLE SETTINGS"), frogpilotVehiclesPanel}, {tr("WHEEL CONTROLS"), frogpilotWheelPanel}}
+    {{tr("VEHICLE SETTINGS"), frogpilotVehiclesPanel}, {tr("WHEEL CONTROLS"), frogpilotWheelPanel}},
+    {{tr("AIDENIRS SETTINGS"), aidenirsSettingsPanel}}
   };
 
   std::vector<std::tuple<QString, QString, QString>> panelInfo = {
@@ -92,7 +95,8 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
     {tr("Navigation"), tr("<b>Download map data for the \"Speed Limit Controller\".</b>"), "../../frogpilot/assets/toggle_icons/icon_navigate.png"},
     {tr("System Settings"), tr("<b>Manage backups, device settings, screen options, storage, and tools to keep FrogPilot running smoothly.</b>"), "../../frogpilot/assets/toggle_icons/icon_system.png"},
     {tr("Theme and Appearance"), tr("<b>Customize the look of the driving screen and interface, including themes!</b>"), "../../frogpilot/assets/toggle_icons/icon_display.png"},
-    {tr("Vehicle Settings"), tr("<b>Configure car-specific options and steering wheel button mappings.</b>"), "../../frogpilot/assets/toggle_icons/icon_vehicle.png"}
+    {tr("Vehicle Settings"), tr("<b>Configure car-specific options and steering wheel button mappings.</b>"), "../../frogpilot/assets/toggle_icons/icon_vehicle.png"},
+    {tr("Aidenirs Settings"), tr("<b>Custom settings for driver monitoring timing and massage reminders.</b>"), "../../frogpilot/assets/toggle_icons/icon_system.png"}
   };
 
   for (size_t i = 0; i < panelInfo.size(); ++i) {
