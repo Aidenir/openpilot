@@ -2,8 +2,9 @@
 import cereal.messaging as messaging
 from opendbc.car import structs
 from openpilot.common.params import Params
+from openpilot.system.hardware import HARDWARE
 from openpilot.common.realtime import config_realtime_process
-from openpilot.selfdrive.monitoring.helpers import DriverMonitoring
+from openpilot.selfdrive.monitoring.helpers import DriverMonitoring, DRIVER_MONITOR_SETTINGS
 
 GearShifter = structs.CarState.GearShifter
 
@@ -15,7 +16,9 @@ def dmonitoringd_thread():
   pm = messaging.PubMaster(['driverMonitoringState'])
   sm = messaging.SubMaster(['driverStateV2', 'liveCalibration', 'carState', 'selfdriveState', 'modelV2'], poll='driverStateV2')
 
-  DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
+  # Create settings with user-configured DM timing values
+  settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type(), params=params)
+  DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), settings=settings, always_on=params.get_bool("AlwaysOnDM"))
   demo_mode=False
 
   # FrogPilot variables
@@ -43,10 +46,13 @@ def dmonitoringd_thread():
     dat = DM.get_state_packet(valid=valid or driver_view_enabled)
     pm.send('driverMonitoringState', dat)
 
-    # load live always-on toggle
+    # load live always-on toggle and DM timing settings
     if sm['driverStateV2'].frameId % 40 == 1:
       DM.always_on = params.get_bool("AlwaysOnDM")
       demo_mode = params.get_bool("IsDriverViewEnabled") and sm["carState"].gearShifter != GearShifter.reverse
+      # Reload DM timing settings every ~2 seconds to allow live updates
+      DM.settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type(), params=params)
+      DM._update_thresholds()
 
     # save rhd virtual toggle every 5 mins
     if (sm['driverStateV2'].frameId % 6000 == 0 and not demo_mode and

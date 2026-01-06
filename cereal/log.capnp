@@ -2228,6 +2228,7 @@ struct DriverMonitoringState @0xb83cda094a1da284 {
   uncertainCount @19 :UInt32;
   phoneProbOffset @20 :Float32;
   phoneProbValidCount @21 :UInt32;
+  distractionTime @22 :Float32;
 
   isPreviewDEPRECATED @15 :Bool;
   rhdCheckedDEPRECATED @5 :Bool;
