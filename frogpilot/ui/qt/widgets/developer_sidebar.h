@@ -28,6 +28,7 @@ private:
   ItemStatus accelerationJerkStatus;
   ItemStatus accelerationStatus;
   ItemStatus actuatorAccelerationStatus;
+  ItemStatus awarenessStatus;
   ItemStatus dangerFactorStatus;
   ItemStatus dangerJerkStatus;
   ItemStatus delayStatus;

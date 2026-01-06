@@ -62,10 +62,12 @@ void DeveloperSidebar::updateState(const UIState &s, const FrogPilotUIState &fs)
   }
 
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
+  const SubMaster &sm = *(s.sm);
   const SubMaster &fpsm = *(fs.sm);
 
   const cereal::CarControl::Reader &carControl = fpsm["carControl"].getCarControl();
   const cereal::CarState::Reader &carState = fpsm["carState"].getCarState();
+  const cereal::DriverMonitoringState::Reader &driverMonitoring = sm["driverMonitoringState"].getDriverMonitoringState();
   const cereal::FrogPilotPlan::Reader &frogpilotPlan = fpsm["frogpilotPlan"].getFrogpilotPlan();
   const cereal::LiveDelayData::Reader &liveDelay = fpsm["liveDelay"].getLiveDelay();
   const cereal::LiveParametersData::Reader &liveParameters = fpsm["liveParameters"].getLiveParameters();
@@ -117,6 +119,7 @@ void DeveloperSidebar::updateState(const UIState &s, const FrogPilotUIState &fs)
   accelerationStatus = ItemStatus(QPair<QString, QString>(tr("ACCEL"), QString::number(acceleration, 'f', 2) + accelerationUnit), metricColor);
   accelerationJerkStatus = ItemStatus(QPair<QString, QString>(tr("ACCEL JERK"), QString::number(frogpilotPlan.getAccelerationJerk())), metricColor);
   actuatorAccelerationStatus = ItemStatus(QPair<QString, QString>(tr("ACT ACCEL"), QString::number(carControl.getActuators().getAccel() * accelerationConversion, 'f', 2) + accelerationUnit), metricColor);
+  awarenessStatus = ItemStatus(QPair<QString, QString>(tr("AWARENESS"), QString::number(driverMonitoring.getAwarenessStatus() * 100.0f, 'f', 1) + "%"), metricColor);
   dangerFactorStatus = ItemStatus(QPair<QString, QString>(tr("DANGER %"), QString::number(frogpilotPlan.getDangerFactor() * 100.0f, 'f', 2) + "%"), metricColor);
   dangerJerkStatus = ItemStatus(QPair<QString, QString>(tr("DANGER JERK"), QString::number(frogpilotPlan.getDangerJerk())), metricColor);
   delayStatus = ItemStatus(QPair<QString, QString>(tr("STEER DELAY"), QString::number(liveDelay.getLateralDelay(), 'f', 5)), metricColor);
@@ -158,6 +161,7 @@ void DeveloperSidebar::paintEvent(QPaintEvent *event) {
   metricMap.insert(14, &accelerationJerkStatus);
   metricMap.insert(15, &dangerJerkStatus);
   metricMap.insert(16, &speedJerkStatus);
+  metricMap.insert(17, &awarenessStatus);
 
   int count = 0;
   for (size_t i = 0; i < metricAssignments.size(); ++i) {
