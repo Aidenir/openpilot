@@ -96,6 +96,7 @@ pyserial = "*"     # pigeond + qcomgpsd
 requests = "*"     # many one-off uses
 sympy = "*"        # rednose + friends
 crcmod = "*"       # cars + qcomgpsd
+osmium = "*"       # frogpilot traffic calming OSM parsing
 
 # hardwared
 smbus2 = "*"  # configuring amp

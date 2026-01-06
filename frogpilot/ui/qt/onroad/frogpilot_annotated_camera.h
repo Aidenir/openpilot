@@ -77,6 +77,7 @@ private:
   void paintSpeedLimitSources(QPainter &p, const cereal::FrogPilotCarState::Reader &frogpilotCarState, const cereal::FrogPilotNavigation::Reader &frogpilotNavigation, const cereal::FrogPilotPlan::Reader &frogpilotPlan);
   void paintStandstillTimer(QPainter &p);
   void paintStoppingPoint(QPainter &p, UIScene &scene, FrogPilotUIScene &frogpilot_scene, QJsonObject &frogpilot_toggles);
+  void paintTrafficCalming(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan);
   void paintTurnSignals(QPainter &p, const cereal::CarState::Reader &carState);
   void paintWeather(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan, FrogPilotUIScene &frogpilot_scene);
   void updateSignals();
@@ -110,6 +111,7 @@ private:
   QPixmap pausedIcon;
   QPixmap speedIcon;
   QPixmap stopSignImg;
+  QPixmap trafficCalmingIcon;
   QPixmap turnIcon;
 
   QPoint cemStatusPosition;

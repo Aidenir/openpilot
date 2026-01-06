@@ -15,6 +15,7 @@ FrogPilotAnnotatedCameraWidget::FrogPilotAnnotatedCameraWidget(QWidget *parent) 
   pausedIcon = loadPixmap("../../frogpilot/assets/other_images/paused_icon.png", {widget_size, widget_size});
   speedIcon = loadPixmap("../../frogpilot/assets/other_images/speed_icon.png", {widget_size, widget_size});
   stopSignImg = loadPixmap("../../frogpilot/assets/other_images/stop_sign.png", {btn_size, btn_size});
+  trafficCalmingIcon = loadPixmap("../../frogpilot/assets/other_images/curve_speed.png", {btn_size, btn_size});
   turnIcon = loadPixmap("../../frogpilot/assets/other_images/turn_icon.png", {widget_size, widget_size});
 
   loadGif("../../frogpilot/assets/other_images/curve_icon.gif", cemCurveIcon, QSize(widget_size, widget_size), this);
@@ -232,6 +233,8 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
   if (frogpilot_toggles.value("road_name_ui").toBool()) {
     paintRoadName(p);
   }
+
+  paintTrafficCalming(p, frogpilotPlan);
 
   if (!bigMapOpen && (mutcdSpeedLimit || viennaSpeedLimit) && frogpilot_toggles.value("speed_limit_sources").toBool()) {
     paintSpeedLimitSources(p, frogpilotCarState, frogpilotNavigation, frogpilotPlan);
@@ -771,6 +774,60 @@ void FrogPilotAnnotatedCameraWidget::paintRoadName(QPainter &p) {
   p.setFont(font);
   p.setPen(QPen(whiteColor(), 6));
   p.drawText(roadNameRect, Qt::AlignCenter, roadName);
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintTrafficCalming(QPainter &p, const cereal::FrogPilotPlan::Reader &frogpilotPlan) {
+  p.save();
+
+  float distance = frogpilotPlan.getTrafficCalmingDistance();
+  QString type = QString::fromUtf8(frogpilotPlan.getTrafficCalmingType().cStr());
+
+  if (distance <= 0 || type.isEmpty() || distance > 300) {
+    p.restore();
+    return;
+  }
+
+  // Position: top right corner below compass
+  int iconSize = btn_size;
+  int x = rect().right() - iconSize - 40;
+  int y = 150;
+
+  // Draw background rounded rectangle
+  QRect bgRect(x - 10, y - 10, iconSize + 120, iconSize + 20);
+  p.setBrush(QColor(0, 0, 0, 150));
+  p.setPen(Qt::NoPen);
+  p.drawRoundedRect(bgRect, 16, 16);
+
+  // Draw icon
+  if (!trafficCalmingIcon.isNull()) {
+    p.drawPixmap(x, y, iconSize, iconSize, trafficCalmingIcon);
+  }
+
+  // Draw distance text
+  QFont font("Inter");
+  font.setPixelSize(45);
+  font.setBold(true);
+  p.setFont(font);
+  p.setPen(QColor(255, 193, 7, 255));  // Yellow/orange color
+
+  bool is_metric = params.getBool("IsMetric");
+  QString distance_text;
+  if (is_metric) {
+    distance_text = QString::number((int)distance) + "m";
+  } else {
+    distance_text = QString::number((int)(distance * 3.28084)) + "ft";
+  }
+
+  p.drawText(x + iconSize + 10, y + 35, distance_text);
+
+  // Draw type label (smaller)
+  font.setPixelSize(28);
+  font.setBold(false);
+  p.setFont(font);
+  p.setPen(QColor(255, 255, 255, 200));
+  p.drawText(x + iconSize + 10, y + 60, type.toUpper());
 
   p.restore();
 }

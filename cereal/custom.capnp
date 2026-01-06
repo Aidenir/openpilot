@@ -221,6 +221,8 @@ struct FrogPilotPlan @0xa1680744031fdb2d {
   weatherDaytime @36 :Bool;
   weatherId @37 :Int16;
   massageReminderTimeLeft @38 :Float32;
+  trafficCalmingDistance @39 :Float32;
+  trafficCalmingType @40 :Text;
 }
 
 struct FrogPilotRadarState @0xcb9fd56c7057593a {

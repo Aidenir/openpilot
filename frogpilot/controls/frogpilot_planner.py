@@ -18,6 +18,7 @@ from openpilot.frogpilot.controls.lib.frogpilot_acceleration import FrogPilotAcc
 from openpilot.frogpilot.controls.lib.frogpilot_events import FrogPilotEvents
 from openpilot.frogpilot.controls.lib.frogpilot_following import FrogPilotFollowing
 from openpilot.frogpilot.controls.lib.frogpilot_vcruise import FrogPilotVCruise
+from openpilot.frogpilot.controls.lib.traffic_calming_controller import TrafficCalmingController
 from openpilot.frogpilot.controls.lib.weather_checker import WeatherChecker
 
 class FrogPilotPlanner:
@@ -28,6 +29,7 @@ class FrogPilotPlanner:
     self.frogpilot_following = FrogPilotFollowing(self)
     self.frogpilot_vcruise = FrogPilotVCruise(self)
     self.frogpilot_weather = WeatherChecker()
+    self.traffic_calming = TrafficCalmingController()
 
     self.tracking_lead_filter = FirstOrderFilter(0, 0.5, DT_MDL)
 
@@ -117,6 +119,10 @@ class FrogPilotPlanner:
     else:
       self.frogpilot_weather.weather_id = 0
 
+    if gps_position and time_validated:
+      bearing = gps_position.get("bearing", 0)
+      self.traffic_calming.update(gps_position, v_ego, bearing)
+
   def update_lead_status(self):
     following_lead = self.lead_one.status
     following_lead &= self.lead_one.dRel < self.model_length + STOP_DISTANCE
@@ -188,5 +194,8 @@ class FrogPilotPlanner:
     frogpilotPlan.weatherId = self.frogpilot_weather.weather_id
 
     frogpilotPlan.massageReminderTimeLeft = float(params_memory.get("MassageReminderTimeLeft", encoding="utf-8") or "0.0")
+
+    frogpilotPlan.trafficCalmingDistance = params_memory.get_float("TrafficCalmingDistance")
+    frogpilotPlan.trafficCalmingType = params_memory.get("TrafficCalmingType", encoding="utf-8") or ""
 
     pm.send("frogpilotPlan", frogpilot_plan_send)
