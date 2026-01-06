@@ -35,6 +35,7 @@ private:
   ItemStatus latAccelStatus;
   ItemStatus lateralEngagementStatus;
   ItemStatus longitudinalEngagementStatus;
+  ItemStatus massageReminderStatus;
   ItemStatus maxAccelerationStatus;
   ItemStatus speedJerkStatus;
   ItemStatus steerAngleStatus;

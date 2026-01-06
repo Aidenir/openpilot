@@ -596,6 +596,19 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
 
   drawHud(painter, frogpilotPlan, *fs, frogpilot_toggles);
 
+  // Debug: Draw DM distraction time
+  auto dm_state = sm["driverMonitoringState"].getDriverMonitoringState();
+  float distraction_time = dm_state.getDistractionTime();
+  if (distraction_time > 0.1) {  // Only show if driver has looked away
+    painter.save();
+    painter.setPen(QColor(255, 255, 255, 200));
+    painter.setFont(InterFont(40, QFont::Bold));
+    QString debug_text = QString("DM: %1s").arg(QString::number(distraction_time, 'f', 1));
+    QRect debug_rect(width() - 250, 50, 200, 50);
+    painter.drawText(debug_rect, Qt::AlignRight | Qt::AlignTop, debug_text);
+    painter.restore();
+  }
+
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
   fps = fps_filter.update(1. / dt * 1000);
