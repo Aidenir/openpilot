@@ -95,6 +95,7 @@ struct FrogPilotCarEvent @0x81c2f05a394cf4af {
     vCruise69 @26;
     yourFrogTriedToKillMe @27;
     youveGotMail @28;
+    massageReminder @29;
   }
 }
 
@@ -219,6 +220,7 @@ struct FrogPilotPlan @0xa1680744031fdb2d {
   vCruise @35 :Float32;
   weatherDaytime @36 :Bool;
   weatherId @37 :Int16;
+  massageReminderTimeLeft @38 :Float32;
 }
 
 struct FrogPilotRadarState @0xcb9fd56c7057593a {
