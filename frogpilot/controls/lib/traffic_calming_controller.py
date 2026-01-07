@@ -9,13 +9,29 @@ from openpilot.common.conversions import Conversions as CV
 from openpilot.frogpilot.common.frogpilot_utilities import calculate_distance_to_point
 from openpilot.frogpilot.common.frogpilot_variables import params_memory
 
+# Helper to log at module level
+def _log_to_file(message):
+  try:
+    log_file = Path("/data/media/0/osm/traffic_calming_detections.log")
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file, 'a') as f:
+      f.write(f"[{timestamp}] {message}\n")
+  except Exception:
+    pass
+
 # Try to import osmium for OSM parsing
 try:
   import osmium
   OSMIUM_AVAILABLE = True
+  msg = "TrafficCalmingController: osmium available"
+  print(msg)
+  _log_to_file(msg)
 except ImportError:
   OSMIUM_AVAILABLE = False
-  print("TrafficCalmingController: osmium not available, feature will be limited")
+  msg = "TrafficCalmingController: osmium not available, feature will be limited"
+  print(msg)
+  _log_to_file(msg)
 
 
 class TrafficCalmingHandler(osmium.SimpleHandler if OSMIUM_AVAILABLE else object):
@@ -52,11 +68,15 @@ class TrafficCalmingHandler(osmium.SimpleHandler if OSMIUM_AVAILABLE else object
 
 class TrafficCalmingController:
   def __init__(self):
-    print("TrafficCalmingController: __init__ called")
     self.cached_features = []  # [(lat, lon, type, name)]
     self.last_query_position = None
     self.cache_file = Path("/data/media/0/osm/traffic_calming_cache.json")
     self.log_file = Path("/data/media/0/osm/traffic_calming_detections.log")
+
+    # Log init early (before _load_cache which also logs)
+    msg = "TrafficCalmingController: __init__ called"
+    print(msg)
+    self._log_detection_early(msg)
 
     # Configuration
     self.query_radius = 500  # meters
@@ -81,9 +101,13 @@ class TrafficCalmingController:
         with open(self.cache_file, 'r') as f:
           data = json.load(f)
           self.cached_features = [tuple(item) for item in data.get('features', [])]
-          print(f"TrafficCalmingController: Loaded {len(self.cached_features)} features from cache")
+          msg = f"TrafficCalmingController: Loaded {len(self.cached_features)} features from cache"
+          print(msg)
+          self._log_detection_early(msg)
     except Exception as e:
-      print(f"TrafficCalmingController: Failed to load cache: {e}")
+      msg = f"TrafficCalmingController: Failed to load cache: {e}"
+      print(msg)
+      self._log_detection_early(msg)
 
   def _save_cache(self):
     """Save traffic calming features to cache."""
@@ -92,7 +116,20 @@ class TrafficCalmingController:
       with open(self.cache_file, 'w') as f:
         json.dump({'features': self.cached_features}, f)
     except Exception as e:
-      print(f"TrafficCalmingController: Failed to save cache: {e}")
+      msg = f"TrafficCalmingController: Failed to save cache: {e}"
+      print(msg)
+      self._log_detection(msg)
+
+  def _log_detection_early(self, message):
+    """Log detection to persistent file (early init version)."""
+    try:
+      log_file = Path("/data/media/0/osm/traffic_calming_detections.log")
+      log_file.parent.mkdir(parents=True, exist_ok=True)
+      timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      with open(log_file, 'a') as f:
+        f.write(f"[{timestamp}] {message}\n")
+    except Exception as e:
+      print(f"TrafficCalmingController: Failed to write log: {e}")
 
   def _log_detection(self, message):
     """Log detection to persistent file."""
