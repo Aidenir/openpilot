@@ -2,6 +2,7 @@
 import json
 import math
 import time
+from datetime import datetime
 from pathlib import Path
 
 from openpilot.common.conversions import Conversions as CV
@@ -54,6 +55,7 @@ class TrafficCalmingController:
     self.cached_features = []  # [(lat, lon, type, name)]
     self.last_query_position = None
     self.cache_file = Path("/data/media/0/osm/traffic_calming_cache.json")
+    self.log_file = Path("/data/media/0/osm/traffic_calming_detections.log")
 
     # Configuration
     self.query_radius = 500  # meters
@@ -63,6 +65,9 @@ class TrafficCalmingController:
 
     # OSM data location
     self.osm_offline_path = Path("/data/media/0/osm/offline")
+
+    # Track last detection to avoid duplicate logs
+    self.last_detection = None
 
     # Load cached data if available
     self._load_cache()
@@ -86,6 +91,16 @@ class TrafficCalmingController:
         json.dump({'features': self.cached_features}, f)
     except Exception as e:
       print(f"TrafficCalmingController: Failed to save cache: {e}")
+
+  def _log_detection(self, message):
+    """Log detection to persistent file."""
+    try:
+      self.log_file.parent.mkdir(parents=True, exist_ok=True)
+      timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      with open(self.log_file, 'a') as f:
+        f.write(f"[{timestamp}] {message}\n")
+    except Exception as e:
+      print(f"TrafficCalmingController: Failed to write log: {e}")
 
   def update(self, gps_position, v_ego, bearing):
     """
@@ -125,12 +140,25 @@ class TrafficCalmingController:
     # Find nearest traffic calming feature ahead
     nearest_feature = self._find_nearest_ahead(current_lat, current_lon, bearing)
 
-    # Update params_memory
+    # Log detection changes
     if nearest_feature:
       distance, feature_type, feature_name = nearest_feature
+      detection_key = f"{feature_type}_{distance:.0f}"
+
+      # Log if this is a new detection or distance changed significantly (>10m)
+      if self.last_detection != detection_key:
+        name_str = f" ({feature_name})" if feature_name else ""
+        self._log_detection(f"Detected {feature_type}{name_str} at {distance:.1f}m ahead")
+        self.last_detection = detection_key
+
       params_memory.put_float("TrafficCalmingDistance", distance)
       params_memory.put("TrafficCalmingType", feature_type)
     else:
+      # Log when detection is cleared
+      if self.last_detection is not None:
+        self._log_detection("Traffic calming cleared")
+        self.last_detection = None
+
       params_memory.put_float("TrafficCalmingDistance", 0.0)
       params_memory.put("TrafficCalmingType", "")
 
