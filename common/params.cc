@@ -578,6 +578,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"TrafficJerkSpeed", PERSISTENT},
     {"TrafficJerkSpeedDecrease", PERSISTENT},
     {"TrafficPersonalityProfile", PERSISTENT},
+    {"TrafficCalmingDistance", CLEAR_ON_MANAGER_START},
+    {"TrafficCalmingType", CLEAR_ON_MANAGER_START},
     {"TuningLevel", PERSISTENT},
     {"TuningLevelConfirmed", PERSISTENT},
     {"TurnDesires", PERSISTENT},
