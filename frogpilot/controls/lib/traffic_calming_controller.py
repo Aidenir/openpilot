@@ -52,6 +52,7 @@ class TrafficCalmingHandler(osmium.SimpleHandler if OSMIUM_AVAILABLE else object
 
 class TrafficCalmingController:
   def __init__(self):
+    print("TrafficCalmingController: __init__ called")
     self.cached_features = []  # [(lat, lon, type, name)]
     self.last_query_position = None
     self.cache_file = Path("/data/media/0/osm/traffic_calming_cache.json")
@@ -71,6 +72,7 @@ class TrafficCalmingController:
 
     # Load cached data if available
     self._load_cache()
+    self._log_detection(f"TrafficCalmingController initialized with {len(self.cached_features)} cached features")
 
   def _load_cache(self):
     """Load previously cached traffic calming features."""
@@ -114,6 +116,11 @@ class TrafficCalmingController:
     current_lat = gps_position["latitude"]
     current_lon = gps_position["longitude"]
 
+    # Log first update to confirm code is running
+    if not hasattr(self, '_first_update_logged'):
+      self._log_detection(f"First update() call - lat={current_lat:.6f}, lon={current_lon:.6f}, bearing={bearing:.1f}")
+      self._first_update_logged = True
+
     # Check if we need to query for new data
     should_query = False
 
@@ -134,8 +141,10 @@ class TrafficCalmingController:
 
     # Fetch new data if needed
     if should_query and OSMIUM_AVAILABLE:
+      self._log_detection(f"Querying OSM data at lat={current_lat:.6f}, lon={current_lon:.6f}")
       self._load_from_osm_tiles(current_lat, current_lon)
       self.last_query_position = {"latitude": current_lat, "longitude": current_lon}
+      self._log_detection(f"After query: {len(self.cached_features)} features in cache")
 
     # Find nearest traffic calming feature ahead
     nearest_feature = self._find_nearest_ahead(current_lat, current_lon, bearing)
@@ -167,41 +176,56 @@ class TrafficCalmingController:
     Load traffic_calming features from local OSM tiles.
     """
     if not OSMIUM_AVAILABLE:
-      print("TrafficCalmingController: osmium not available, cannot parse OSM tiles")
+      msg = "TrafficCalmingController: osmium not available, cannot parse OSM tiles"
+      print(msg)
+      self._log_detection(msg)
       return
 
     if not self.osm_offline_path.exists():
-      print(f"TrafficCalmingController: OSM offline path does not exist: {self.osm_offline_path}")
+      msg = f"TrafficCalmingController: OSM offline path does not exist: {self.osm_offline_path}"
+      print(msg)
+      self._log_detection(msg)
       return
 
     try:
       # Find relevant OSM tile files
-      # This is a simplified approach - in reality, you'd need to determine which tile(s)
-      # contain the current GPS position based on the tile naming scheme
-      osm_files = list(self.osm_offline_path.glob("*.osm.pbf"))
+      # Files are stored as coordinate bounding boxes: lat1_lon1_lat2_lon2
+      # in subdirectories like: /data/media/0/osm/offline/54/10/54.000000_10.000000_54.250000_10.250000
+      osm_files = [f for f in self.osm_offline_path.glob("*/*/*") if f.is_file()]
 
       if not osm_files:
-        print("TrafficCalmingController: No OSM tiles found")
+        msg = "TrafficCalmingController: No OSM tiles found"
+        print(msg)
+        self._log_detection(msg)
         return
+
+      self._log_detection(f"Found {len(osm_files)} OSM tile files")
 
       # Parse the OSM files (this is expensive, so we cache results)
       handler = TrafficCalmingHandler()
 
-      # For now, just parse the first file as an example
       # TODO: Implement proper tile selection based on GPS coordinates
-      for osm_file in osm_files[:1]:  # Limit to first file for performance
+      # For now, just parse the first few files
+      for osm_file in osm_files[:3]:  # Limit to first 3 files for performance
         try:
           handler.apply_file(str(osm_file), locations=True)
-          print(f"TrafficCalmingController: Parsed {osm_file.name}, found {len(handler.features)} features")
+          msg = f"Parsed {osm_file.name}, found {len(handler.features)} features"
+          print(f"TrafficCalmingController: {msg}")
+          self._log_detection(msg)
         except Exception as e:
-          print(f"TrafficCalmingController: Failed to parse {osm_file.name}: {e}")
+          msg = f"Failed to parse {osm_file.name}: {e}"
+          print(f"TrafficCalmingController: {msg}")
+          self._log_detection(msg)
 
       # Update cached features
       self.cached_features = handler.features
       self._save_cache()
+      self._log_detection(f"Cached {len(self.cached_features)} total features")
 
     except Exception as e:
-      print(f"TrafficCalmingController: Error loading OSM tiles: {e}")
+      msg = f"Error loading OSM tiles: {e}"
+      print(f"TrafficCalmingController: {msg}")
+      self._log_detection(msg)
 
   def _find_nearest_ahead(self, current_lat, current_lon, bearing):
     """

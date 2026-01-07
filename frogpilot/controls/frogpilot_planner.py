@@ -121,7 +121,13 @@ class FrogPilotPlanner:
 
     if gps_position and time_validated:
       bearing = gps_position.get("bearing", 0)
+      if not hasattr(self, '_traffic_calming_called'):
+        print(f"FrogPilotPlanner: First call to traffic_calming.update() - GPS valid, time valid")
+        self._traffic_calming_called = True
       self.traffic_calming.update(gps_position, v_ego, bearing)
+    elif not hasattr(self, '_traffic_calming_not_called_logged'):
+      print(f"FrogPilotPlanner: traffic_calming.update() NOT called - gps_position={gps_position is not None}, time_validated={time_validated}")
+      self._traffic_calming_not_called_logged = True
 
   def update_lead_status(self):
     following_lead = self.lead_one.status
