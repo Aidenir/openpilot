@@ -185,24 +185,25 @@ class SubMaster:
       if msg is None:
         continue
 
-      # Determine service name
-      if service_names and i < len(service_names) and service_names[i]:
-        s = service_names[i]
-      else:
-        # Fallback to union detection for backward compatibility
-        try:
-          s = msg.which()
-        except:
-          # Non-union message without service name - skip
-          continue
+      # Always try union first for field name
+      try:
+        field_name = msg.which()
+        service_name = service_names[i] if service_names and i < len(service_names) and service_names[i] else field_name
+      except:
+        # Non-union message, service name is the field name
+        if service_names and i < len(service_names) and service_names[i]:
+          field_name = service_names[i]
+          service_name = field_name
+        else:
+          continue  # Can't handle this message
 
-      if self.recv_time[s] > 1e-5:
-        self.recv_dts[s].append(cur_time - self.recv_time[s])
-      self.recv_time[s] = cur_time
-      self.recv_frame[s] = self.frame
-      self.data[s] = getattr(msg, s)
-      self.logMonoTime[s] = msg.logMonoTime
-      self.valid[s] = msg.valid
+      if self.recv_time[field_name] > 1e-5:
+        self.recv_dts[field_name].append(cur_time - self.recv_time[field_name])
+      self.recv_time[field_name] = cur_time
+      self.recv_frame[field_name] = self.frame
+      self.data[field_name] = getattr(msg, field_name)
+      self.logMonoTime[service_name] = msg.logMonoTime
+      self.valid[service_name] = msg.valid
 
     for s in self.data:
       if SERVICE_LIST[s].frequency > 1e-5 and not self.simulation:
