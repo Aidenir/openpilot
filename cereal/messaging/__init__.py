@@ -185,23 +185,53 @@ class SubMaster:
       if msg is None:
         continue
 
-      # Always try union first for field name
+      # Check if message is union or struct
+      is_union = True
       try:
-        field_name = msg.which()
-        service_name = service_names[i] if service_names and i < len(service_names) and service_names[i] else field_name
+        # Test if it's a union
+        msg.which()
       except:
-        # Non-union message, service name is the field name
+        is_union = False
+
+      if is_union:
+        # Union message: use msg.which() for actual field
+        try:
+          field_name = msg.which()
+          service_name = service_names[i] if service_names and i < len(service_names) and service_names[i] else field_name
+        except:
+          continue  # Can't determine field name
+      else:
+        # Direct struct message: service name is the field name
         if service_names and i < len(service_names) and service_names[i]:
           field_name = service_names[i]
           service_name = field_name
         else:
           continue  # Can't handle this message
 
+      # Only process if we have valid field name
+      if field_name is None:
+        continue
+
       if self.recv_time[field_name] > 1e-5:
         self.recv_dts[field_name].append(cur_time - self.recv_time[field_name])
       self.recv_time[field_name] = cur_time
       self.recv_frame[field_name] = self.frame
-      self.data[field_name] = getattr(msg, field_name)
+      
+      # For union messages, access the active field
+      # For struct messages, the message IS the field
+      try:
+        if is_union:
+          self.data[field_name] = getattr(msg, field_name)
+        else:
+          # For direct struct messages, store the message itself
+          self.data[field_name] = msg
+      except:
+        # If accessing union field fails, try the service name directly
+        if service_name != field_name and service_name in self.data:
+          self.data[service_name] = msg
+        else:
+          continue  # Skip if we can't process
+          
       self.logMonoTime[service_name] = msg.logMonoTime
       self.valid[service_name] = msg.valid
 
