@@ -158,24 +158,43 @@ class SubMaster:
 
   def update(self, timeout: int = 100) -> None:
     msgs = []
+    service_names = []
+    
+    # Track polled services
     for sock in self.poller.poll(timeout):
       msgs.append(recv_one_or_none(sock))
+      # Find service name for this socket
+      for s, sock_obj in self.sock.items():
+        if sock_obj == sock:
+          service_names.append(s)
+          break
+      else:
+        service_names.append(None)
 
     # non-blocking receive for non-polled sockets
     for s in self.non_polled_services:
       msgs.append(recv_one_or_none(self.sock[s]))
-    self.update_msgs(time.monotonic(), msgs)
+      service_names.append(s)
+    
+    self.update_msgs(time.monotonic(), msgs, service_names)
 
-  def update_msgs(self, cur_time: float, msgs: List[capnp.lib.capnp._DynamicStructReader]) -> None:
+  def update_msgs(self, cur_time: float, msgs: List[capnp.lib.capnp._DynamicStructReader], service_names: List[Optional[str]] = None) -> None:
     self.frame += 1
     self.updated = dict.fromkeys(self.updated, False)
-    for msg in msgs:
+    for i, msg in enumerate(msgs):
       if msg is None:
         continue
 
-      s = msg.which()
-      self.seen[s] = True
-      self.updated[s] = True
+      # Determine service name
+      if service_names and i < len(service_names) and service_names[i]:
+        s = service_names[i]
+      else:
+        # Fallback to union detection for backward compatibility
+        try:
+          s = msg.which()
+        except:
+          # Non-union message without service name - skip
+          continue
 
       if self.recv_time[s] > 1e-5:
         self.recv_dts[s].append(cur_time - self.recv_time[s])

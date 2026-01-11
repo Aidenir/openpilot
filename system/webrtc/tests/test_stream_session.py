@@ -35,7 +35,7 @@ class TestStreamSession:
     channel = mocker.Mock(spec=RTCDataChannel)
     mocked_submaster = messaging.SubMaster(["customReservedRawData0"])
     def mocked_update(t):
-      mocked_submaster.update_msgs(0, [test_msg])
+      mocked_submaster.update_msgs(0, [test_msg], None)
 
     mocker.patch.object(messaging.SubMaster, "update", side_effect=mocked_update)
     proxy = CerealOutgoingMessageProxy(mocked_submaster)

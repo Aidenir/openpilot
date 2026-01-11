@@ -83,7 +83,7 @@ class SubMaster(messaging.SubMaster):
       raise ReplayDone
 
     cur_msgs = self.msgs.pop()
-    self.update_msgs(cur_msgs[0].logMonoTime, self.msgs.pop())
+    self.update_msgs(cur_msgs[0].logMonoTime, cur_msgs)
 
 
 class PubMaster(messaging.PubMaster):
