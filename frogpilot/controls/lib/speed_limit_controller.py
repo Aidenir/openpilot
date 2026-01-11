@@ -239,7 +239,7 @@ class SpeedLimitController:
       params.put_float_nonblocking("PreviousSpeedLimit", self.target)
 
   def update_limits(self, dashboard_speed_limit, gps_position, navigation_speed_limit, now, time_validated, v_cruise, v_ego, sm):
-    self.update_map_speed_limit(gps_position, v_ego)
+    self.update_map_speed_limit(v_ego, sm)
 
     limits = {
       "Dashboard": dashboard_speed_limit,
@@ -304,24 +304,11 @@ class SpeedLimitController:
       self.speed_limit_changed_timer = 0
       self.unconfirmed_speed_limit = 0
 
-  def update_map_speed_limit(self, gps_position, v_ego):
-    if not gps_position:
-      return
+  def update_map_speed_limit(self, v_ego, sm):
+    self.map_speed_limit = sm["mapdOut"].speedLimit
+    self.next_speed_limit = sm["mapdOut"].nextSpeedLimit
 
-    self.map_speed_limit = params_memory.get_float("MapSpeedLimit")
-
-    next_map_speed_limit = json.loads(params_memory.get("NextMapSpeedLimit") or "{}")
-    self.next_speed_limit = next_map_speed_limit.get("speedlimit", 0)
-
-    if self.next_speed_limit:
-      current_latitude = gps_position.get("latitude")
-      current_longitude = gps_position.get("longitude")
-
-      next_latitude = next_map_speed_limit.get("latitude")
-      next_longitude = next_map_speed_limit.get("longitude")
-
-      distance_to_upcoming = calculate_distance_to_point(current_latitude * CV.DEG_TO_RAD, current_longitude * CV.DEG_TO_RAD, next_latitude * CV.DEG_TO_RAD, next_longitude * CV.DEG_TO_RAD)
-
+    if self.next_speed_limit > 0:
       if self.map_speed_limit < self.next_speed_limit:
         max_lookahead = self.frogpilot_toggles.map_speed_lookahead_higher * v_ego
       elif self.map_speed_limit > self.next_speed_limit:
@@ -329,7 +316,7 @@ class SpeedLimitController:
       else:
         max_lookahead = 0
 
-      if distance_to_upcoming < max_lookahead:
+      if sm["mapdOut"].nextSpeedLimitDistance < max_lookahead:
         self.map_speed_limit = self.next_speed_limit
 
   def update_override(self, v_cruise, v_cruise_diff, v_ego, v_ego_diff, sm):

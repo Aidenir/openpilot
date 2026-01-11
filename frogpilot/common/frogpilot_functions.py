@@ -15,6 +15,7 @@ import zstandard as zstd
 
 from pathlib import Path
 
+from cereal import messaging
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 from openpilot.common.time import system_time_valid
@@ -25,7 +26,7 @@ from openpilot.frogpilot.assets.model_manager import ModelManager
 from openpilot.frogpilot.assets.theme_manager import ThemeManager
 from openpilot.frogpilot.common.frogpilot_utilities import delete_file, run_cmd, use_konik_server
 from openpilot.frogpilot.common.frogpilot_variables import (
-  ERROR_LOGS_PATH, EXCLUDED_KEYS, HD_LOGS_PATH, KONIK_LOGS_PATH, MODELS_PATH, SCREEN_RECORDINGS_PATH,
+  ERROR_LOGS_PATH, EXCLUDED_KEYS, HD_LOGS_PATH, KONIK_LOGS_PATH, MAPS_PATH, MODELS_PATH, SCREEN_RECORDINGS_PATH,
   THEME_SAVE_PATH, VIDEO_CACHE_PATH, FrogPilotVariables, frogpilot_default_params, get_frogpilot_toggles, params
 )
 from openpilot.frogpilot.system.frogpilot_stats import send_stats
@@ -210,3 +211,58 @@ def uninstall_frogpilot():
   run_cmd(["sudo", "cp", stock_boot_logo, boot_logo_location], "Successfully restored boot logo", "Failed to restore boot logo")
 
   HARDWARE.uninstall()
+
+def update_maps(now, params, params_memory, manual_update=False):
+  maps_selected = params.get("MapsSelected")
+  if not maps_selected:
+    return
+
+  day = now.day
+  is_first = day == 1
+  is_sunday = now.weekday() == 6
+  schedule = params.get("PreferredSchedule")
+
+  maps_downloaded = MAPS_PATH.exists()
+  if maps_downloaded and (schedule == 0 or (schedule == 1 and not is_sunday) or (schedule == 2 and not is_first)) and not manual_update:
+    return
+
+  suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+  todays_date = now.strftime(f"%B {day}{suffix}, %Y")
+
+  if maps_downloaded and params.get("LastMapsUpdate") == todays_date and not manual_update:
+    return
+
+  pm = messaging.PubMaster(["mapdIn"])
+  sm = messaging.SubMaster(["mapdExtendedOut"])
+
+  time.sleep(1)
+
+  msg = messaging.new_message("mapdIn")
+  msg.mapdIn.type = 0
+  msg.mapdIn.str = maps_selected
+  pm.send("mapdIn", msg)
+
+  started = False
+  while True:
+    sm.update(1000)
+
+    if params_memory.get_bool("CancelDownloadMaps"):
+      msg = messaging.new_message("mapdIn")
+      msg.mapdIn.type = 27
+      pm.send("mapdIn", msg)
+
+      params_memory.remove("CancelDownloadMaps")
+      params_memory.remove("DownloadMaps")
+      return
+
+    if sm.updated["mapdExtendedOut"]:
+      progress = sm["mapdExtendedOut"].downloadProgress
+
+      if progress.active:
+        started = True
+
+      if not progress.active and started:
+        break
+
+  params.put("LastMapsUpdate", todays_date)
+  params_memory.remove("DownloadMaps")

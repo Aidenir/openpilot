@@ -123,6 +123,9 @@ void FrogPilotAnnotatedCameraWidget::updateState(const FrogPilotUIState &fs, con
   const SubMaster &fpsm = *(fs.sm);
 
   const cereal::FrogPilotPlan::Reader &frogpilotPlan = fpsm["frogpilotPlan"].getFrogpilotPlan();
+  const cereal::MapdOut::Reader &mapdOut = fpsm["mapdOut"].getMapdOut();
+
+  roadName = QString::fromStdString(mapdOut.getRoadName());
 
   if (scene.is_metric || frogpilot_toggles.value("use_si_metrics").toBool()) {
     leadDistanceUnit = tr(" meters");
@@ -748,7 +751,6 @@ void FrogPilotAnnotatedCameraWidget::paintRainbowPath(QPainter &p, QLinearGradie
 }
 
 void FrogPilotAnnotatedCameraWidget::paintRoadName(QPainter &p) {
-  QString roadName = QString::fromStdString(params_memory.get("RoadName"));
   if (roadName.isEmpty()) {
     return;
   }

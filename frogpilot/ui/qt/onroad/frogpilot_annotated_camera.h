@@ -56,6 +56,7 @@ public:
 
   QString leadDistanceUnit;
   QString leadSpeedUnit;
+  QString roadName;
   QString signalStyle;
   QString speedLimitOffsetStr;
   QString speedUnit;

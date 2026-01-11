@@ -25,7 +25,7 @@ from openpilot.selfdrive.car.toyota.carcontroller import LOCK_CMD
 from openpilot.system.hardware import HARDWARE
 from panda import Panda
 
-from openpilot.frogpilot.common.frogpilot_variables import DISCORD_WEBHOOK_URL_REPORT, EARTH_RADIUS, ERROR_LOGS_PATH, KONIK_PATH, MAPD_PATH, MAPS_PATH, params, params_cache, params_memory
+from openpilot.frogpilot.common.frogpilot_variables import DISCORD_WEBHOOK_URL_REPORT, EARTH_RADIUS, ERROR_LOGS_PATH, KONIK_PATH, MAPS_PATH, params, params_cache, params_memory
 
 running_threads = {}
 
@@ -287,43 +287,6 @@ def run_cmd(cmd, success_message, fail_message, env=None, report=True):
 def update_json_file(path, data):
   with open(path, "w") as file:
     json.dump(data, file, indent=2, sort_keys=True)
-
-def update_maps(now):
-  while not MAPD_PATH.exists():
-    time.sleep(60)
-
-  maps_selected = json.loads(params.get("MapsSelected", encoding="utf-8") or "{}")
-
-  if isinstance(maps_selected, int):
-    params.remove("MapsSelected")
-    params_cache.remove("MapsSelected")
-    return
-
-  if not (maps_selected.get("nations") or maps_selected.get("states")):
-    return
-
-  day = now.day
-  is_first = day == 1
-  is_Sunday = now.weekday() == 6
-  schedule = params.get_int("PreferredSchedule")
-
-  maps_downloaded = MAPS_PATH.exists()
-  if maps_downloaded and (schedule == 0 or (schedule == 1 and not is_Sunday) or (schedule == 2 and not is_first)):
-    return
-
-  suffix = "th" if 11 <= day <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-  todays_date = now.strftime(f"%B {day}{suffix}, %Y")
-
-  if maps_downloaded and params.get("LastMapsUpdate", encoding="utf-8") == todays_date:
-    return
-
-  if params.get("OSMDownloadProgress", encoding="utf-8") is None:
-    params_memory.put("OSMDownloadLocations", json.dumps(maps_selected))
-
-  while params.get("OSMDownloadProgress", encoding="utf-8") is not None:
-    time.sleep(60)
-
-  params.put("LastMapsUpdate", todays_date)
 
 def update_openpilot():
   def update_available():

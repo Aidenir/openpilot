@@ -10,8 +10,8 @@ from openpilot.common.time import system_time_valid
 
 from openpilot.frogpilot.assets.model_manager import MODEL_DOWNLOAD_ALL_PARAM, MODEL_DOWNLOAD_PARAM, ModelManager
 from openpilot.frogpilot.assets.theme_manager import THEME_COMPONENT_PARAMS, ThemeManager
-from openpilot.frogpilot.common.frogpilot_functions import backup_toggles
-from openpilot.frogpilot.common.frogpilot_utilities import capture_report, flash_panda, is_url_pingable, lock_doors, run_thread_with_lock, update_maps, update_openpilot
+from openpilot.frogpilot.common.frogpilot_functions import backup_toggles, update_maps
+from openpilot.frogpilot.common.frogpilot_utilities import capture_report, flash_panda, is_url_pingable, lock_doors, run_thread_with_lock, update_openpilot
 from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles, params, params_cache, params_memory
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.frogpilot.system.frogpilot_stats import send_stats
@@ -19,7 +19,7 @@ from openpilot.frogpilot.system.frogpilot_tracking import FrogPilotTracking
 
 ASSET_CHECK_RATE = (1 / DT_MDL)
 
-def assets_checks(model_manager, theme_manager, frogpilot_toggles):
+def assets_checks(model_manager, theme_manager, frogpilot_toggles, now):
   if params_memory.get_bool(MODEL_DOWNLOAD_ALL_PARAM):
     run_thread_with_lock("download_all_models", model_manager.download_all_models)
   elif params_memory.get_bool("UpdateTinygrad"):
@@ -31,6 +31,9 @@ def assets_checks(model_manager, theme_manager, frogpilot_toggles):
 
   if params_memory.get_bool("FlashPanda"):
     run_thread_with_lock("flash_panda", flash_panda)
+
+  if params_memory.get_bool("DownloadMaps"):
+    run_thread_with_lock("update_maps", update_maps, (now, params, params_memory, True))
 
   report_data = json.loads(params_memory.get("IssueReported", encoding="utf-8") or "{}")
   if report_data:
@@ -49,7 +52,7 @@ def update_checks(model_manager, now, theme_manager, frogpilot_toggles, boot_run
   model_manager.update_models(boot_run)
   theme_manager.update_themes(frogpilot_toggles, boot_run)
 
-  run_thread_with_lock("update_maps", update_maps, (now,))
+  run_thread_with_lock("update_maps", update_maps, (now, params, params_memory))
 
   if frogpilot_toggles.automatic_updates:
     run_thread_with_lock("update_openpilot", update_openpilot)
@@ -77,7 +80,7 @@ def frogpilot_thread():
   sm = messaging.SubMaster(["carControl", "carState", "controlsState", "deviceState", "driverMonitoringState",
                             "liveLocationKalman", "liveParameters", "managerState", "modelV2", "onroadEvents",
                             "pandaStates", "radarState", "frogpilotCarState", "frogpilotControlsState",
-                            "frogpilotModelV2", "frogpilotNavigation", "frogpilotOnroadEvents"],
+                            "frogpilotModelV2", "frogpilotNavigation", "frogpilotOnroadEvents", "mapdOut"],
                             poll="modelV2", ignore_avg_freq=["frogpilotRadarState"])
 
   run_update_checks = False
@@ -128,7 +131,7 @@ def frogpilot_thread():
     started_previously = started
 
     if rate_keeper.frame % ASSET_CHECK_RATE == 0:
-      assets_checks(model_manager, theme_manager, frogpilot_toggles)
+      assets_checks(model_manager, theme_manager, frogpilot_toggles, now)
 
     if params_memory.get_bool("FrogPilotTogglesUpdated") or theme_manager.theme_updated:
       previous_holiday_themes = frogpilot_toggles.holiday_themes
