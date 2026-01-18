@@ -212,6 +212,9 @@ class SubMaster:
       if field_name is None:
         continue
 
+      self.seen[field_name] = True
+      self.updated[field_name] = True
+
       if self.recv_time[field_name] > 1e-5:
         self.recv_dts[field_name].append(cur_time - self.recv_time[field_name])
       self.recv_time[field_name] = cur_time
@@ -232,8 +235,8 @@ class SubMaster:
         else:
           continue  # Skip if we can't process
           
-      self.logMonoTime[service_name] = msg.logMonoTime
-      self.valid[service_name] = msg.valid
+      self.logMonoTime[field_name] = msg.logMonoTime
+      self.valid[field_name] = msg.valid
 
     for s in self.data:
       if SERVICE_LIST[s].frequency > 1e-5 and not self.simulation:
