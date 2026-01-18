@@ -2418,9 +2418,21 @@ struct Event {
     frogpilotOnroadEvents @114: List(Custom.FrogPilotCarEvent);
     frogpilotPlan @115 :Custom.FrogPilotPlan;
     frogpilotRadarState @116 :Custom.FrogPilotRadarState;
-    mapdExtendedOut @131 :Custom.MapdExtendedOut;
-    mapdIn @132 :Custom.MapdIn;
-    mapdOut @133 :Custom.MapdOut;
+    reserved131 @131 :Void;
+    reserved132 @132 :Void;
+    reserved133 @133 :Void;
+    reserved134 @134 :Void;
+    reserved135 @135 :Void;
+    reserved136 @136 :Void;
+    reserved137 @137 :Void;
+    reserved138 @138 :Void;
+    reserved139 @139 :Void;
+    reserved140 @140 :Void;
+    reserved141 @141 :Void;
+    reserved142 @142 :Void;
+    mapdExtendedOut @143 :Custom.MapdExtendedOut;
+    mapdIn @144 :Custom.MapdIn;
+    mapdOut @145 :Custom.MapdOut;
 
     # *********** legacy + deprecated ***********
     model @9 :Legacy.ModelData; # TODO: rename modelV2 and mark this as deprecated
