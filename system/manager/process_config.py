@@ -112,7 +112,7 @@ procs = [
   # FrogPilot processes
   NativeProcess("classic_modeld", "frogpilot/classic_modeld", ["./classic_modeld"], run_classic_modeld),
   PythonProcess("frogpilot_process", "frogpilot.frogpilot_process", always_run),
-  NativeProcess("mapd", "frogpilot/navigation", ["./mapd"], always_run),
+  NativeProcess("mapd", "frogpilot/navigation", ["/data/media/0/osm/mapd"], always_run),
   PythonProcess("speed_limit_filler", "frogpilot.system.speed_limit_filler", run_speed_limit_filler),
   PythonProcess("the_pond", "frogpilot.system.the_pond.the_pond", always_run),
   PythonProcess("tinygrad_modeld", "frogpilot.tinygrad_modeld.tinygrad_modeld", run_tinygrad_modeld),
