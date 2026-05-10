@@ -199,6 +199,11 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   float speedLimitOffset = frogpilotPlan.getSlcSpeedLimitOffset() * speedConversion;
   speedLimitOffsetStr = (speedLimitOffset != 0) ? QString::number(speedLimitOffset, 'f', 0).prepend((speedLimitOffset > 0) ? "+" : "-") : "–";
 
+  float mapdSuggestedSpeedRaw = frogpilotPlan.getMapdSuggestedSpeed();
+  mapdSuggestedSpeedStr = mapdSuggestedSpeedRaw > 0
+    ? QString("mapd: %1").arg(QString::number(std::nearbyint(mapdSuggestedSpeedRaw * speedConversion)))
+    : QString();
+
   static int lastFrameIndex;
   if (lastFrameIndex > animationFrameIndex && frogpilot_toggles.value("signal_icons").toString() == "frog") {
     frogHopCount++;
@@ -301,6 +306,8 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
   if (frogpilot_toggles.value("road_name_ui").toBool()) {
     paintRoadName(p);
   }
+
+  paintMapdSuggestedSpeed(p);
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
   if (!hideSpeedLimit && (frogpilot_toggles.value("show_speed_limits").toBool() || frogpilot_toggles.value("speed_limit_controller").toBool())) {
@@ -865,6 +872,30 @@ void FrogPilotAnnotatedCameraWidget::paintRadarTracks(QPainter &p) {
 
     p.drawEllipse(QPointF(x + radius, y + radius), radius, radius);
   }
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintMapdSuggestedSpeed(QPainter &p) {
+  if (mapdSuggestedSpeedStr.isEmpty()) {
+    return;
+  }
+
+  p.save();
+
+  QFont font = InterFont(36, QFont::DemiBold);
+
+  int textWidth = QFontMetrics(font).horizontalAdvance(mapdSuggestedSpeedStr);
+  QRect rect((width() - (textWidth + 80)) / 2, 20, textWidth + 80, 46);
+
+  p.setBrush(blackColor(180));
+  p.setOpacity(1.0);
+  p.setPen(QPen(blackColor(), 8));
+  p.drawRoundedRect(rect, 20, 20);
+
+  p.setFont(font);
+  p.setPen(QPen(QColor(100, 220, 100), 4));
+  p.drawText(rect, Qt::AlignCenter, mapdSuggestedSpeedStr);
 
   p.restore();
 }
