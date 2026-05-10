@@ -185,11 +185,7 @@ class FrogPilotPlanner:
     frogpilotPlan.roadCurvature = self.road_curvature
 
     frogpilotPlan.slcMapSpeedLimit = self.frogpilot_vcruise.slc.map_speed_limit
-    try:
-      with open("/dev/shm/params/MapdSuggestedSpeed", "r") as f:
-        frogpilotPlan.mapdSuggestedSpeed = float(f.read().strip())
-    except Exception:
-      frogpilotPlan.mapdSuggestedSpeed = 0.0
+    frogpilotPlan.mapdSuggestedSpeed = sm["mapdOut"].suggestedSpeed
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed
