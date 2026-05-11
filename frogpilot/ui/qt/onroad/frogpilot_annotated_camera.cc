@@ -209,6 +209,19 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
     ? QString("bump: %1 m").arg(QString::number(std::nearbyint(nextSpeedBumpDistRaw)))
     : QString();
 
+  int speedBumpAreaCount = frogpilotPlan.getSpeedBumpAreaCount();
+  if (speedBumpAreaCount > 0 && speedBumpAreaCountLast == 0) {
+    tileLoadTimer.start();
+  } else if (speedBumpAreaCount == 0) {
+    tileLoadTimer.invalidate();
+  }
+  speedBumpAreaCountLast = speedBumpAreaCount;
+  if (tileLoadTimer.isValid() && tileLoadTimer.elapsed() < 60000) {
+    speedBumpAreaStr = QString("Map: %1 bumps in tile").arg(speedBumpAreaCount);
+  } else {
+    speedBumpAreaStr = QString();
+  }
+
   static int lastFrameIndex;
   if (lastFrameIndex > animationFrameIndex && frogpilot_toggles.value("signal_icons").toString() == "frog") {
     frogHopCount++;
@@ -314,6 +327,7 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
 
   paintMapdSuggestedSpeed(p);
   paintNextSpeedBump(p);
+  paintSpeedBumpAreaCount(p);
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
   if (!hideSpeedLimit && (frogpilot_toggles.value("show_speed_limits").toBool() || frogpilot_toggles.value("speed_limit_controller").toBool())) {
@@ -926,6 +940,29 @@ void FrogPilotAnnotatedCameraWidget::paintNextSpeedBump(QPainter &p) {
   p.setFont(font);
   p.setPen(QPen(QColor(255, 200, 50), 4));
   p.drawText(rect, Qt::AlignCenter, nextSpeedBumpStr);
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintSpeedBumpAreaCount(QPainter &p) {
+  if (speedBumpAreaStr.isEmpty()) {
+    return;
+  }
+
+  p.save();
+
+  QFont font = InterFont(40, QFont::Bold);
+  int textWidth = QFontMetrics(font).horizontalAdvance(speedBumpAreaStr);
+  QRect rect((width() - (textWidth + 100)) / 2, height() / 2 - 40, textWidth + 100, 56);
+
+  p.setBrush(QColor(0, 0, 0, 210));
+  p.setOpacity(1.0);
+  p.setPen(QPen(QColor(255, 200, 50), 6));
+  p.drawRoundedRect(rect, 24, 24);
+
+  p.setFont(font);
+  p.setPen(QPen(QColor(255, 200, 50), 4));
+  p.drawText(rect, Qt::AlignCenter, speedBumpAreaStr);
 
   p.restore();
 }

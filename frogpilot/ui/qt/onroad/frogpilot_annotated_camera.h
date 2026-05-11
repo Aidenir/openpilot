@@ -70,6 +70,7 @@ private:
   void paintRadarTracks(QPainter &p);
   void paintMapdSuggestedSpeed(QPainter &p);
   void paintNextSpeedBump(QPainter &p);
+  void paintSpeedBumpAreaCount(QPainter &p);
   void paintRoadName(QPainter &p);
   void paintSpeedLimit(QPainter &p);
   void paintSpeedLimitSources(QPainter &p);
@@ -133,6 +134,7 @@ private:
   QElapsedTimer glowTimer;
   QElapsedTimer pendingLimitTimer;
   QElapsedTimer standstillTimer;
+  QElapsedTimer tileLoadTimer;
 
   QPixmap brakePedalImg;
   QPixmap curveSpeedIcon;
@@ -172,6 +174,8 @@ private:
   QString roadName;
   QString mapdSuggestedSpeedStr;
   QString nextSpeedBumpStr;
+  QString speedBumpAreaStr;
+  int speedBumpAreaCountLast = 0;
   QString speedLimitOffsetStr;
   QString speedUnit;
 
