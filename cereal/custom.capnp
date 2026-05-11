@@ -184,6 +184,7 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   weatherDaytime @34 :Bool;
   weatherId @35 :Int16;
   mapdSuggestedSpeed @36 :Float32;
+  nextSpeedBumpDistance @37 :Float32;
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {
@@ -377,4 +378,5 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   mapCurveSpeed @21 :Float32;
   waySelectionType @22 :WaySelectionType;
   speedLimitAccepted @23 :Bool;
+  nextSpeedBumpDistance @24 :Float32;
 }

@@ -186,6 +186,7 @@ class FrogPilotPlanner:
 
     frogpilotPlan.slcMapSpeedLimit = self.frogpilot_vcruise.slc.map_speed_limit
     frogpilotPlan.mapdSuggestedSpeed = sm["mapdOut"].suggestedSpeed
+    frogpilotPlan.nextSpeedBumpDistance = sm["mapdOut"].nextSpeedBumpDistance
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed

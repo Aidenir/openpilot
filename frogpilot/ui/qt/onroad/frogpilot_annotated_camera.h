@@ -69,6 +69,7 @@ private:
   void paintPendingSpeedLimit(QPainter &p);
   void paintRadarTracks(QPainter &p);
   void paintMapdSuggestedSpeed(QPainter &p);
+  void paintNextSpeedBump(QPainter &p);
   void paintRoadName(QPainter &p);
   void paintSpeedLimit(QPainter &p);
   void paintSpeedLimitSources(QPainter &p);
@@ -170,6 +171,7 @@ private:
   QString leadSpeedUnit;
   QString roadName;
   QString mapdSuggestedSpeedStr;
+  QString nextSpeedBumpStr;
   QString speedLimitOffsetStr;
   QString speedUnit;
 

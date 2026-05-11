@@ -204,6 +204,11 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
     ? QString("mapd: %1").arg(QString::number(std::nearbyint(mapdSuggestedSpeedRaw * speedConversion)))
     : QString();
 
+  float nextSpeedBumpDistRaw = frogpilotPlan.getNextSpeedBumpDistance();
+  nextSpeedBumpStr = nextSpeedBumpDistRaw > 0
+    ? QString("bump: %1 m").arg(QString::number(std::nearbyint(nextSpeedBumpDistRaw)))
+    : QString();
+
   static int lastFrameIndex;
   if (lastFrameIndex > animationFrameIndex && frogpilot_toggles.value("signal_icons").toString() == "frog") {
     frogHopCount++;
@@ -308,6 +313,7 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
   }
 
   paintMapdSuggestedSpeed(p);
+  paintNextSpeedBump(p);
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
   if (!hideSpeedLimit && (frogpilot_toggles.value("show_speed_limits").toBool() || frogpilot_toggles.value("speed_limit_controller").toBool())) {
@@ -896,6 +902,30 @@ void FrogPilotAnnotatedCameraWidget::paintMapdSuggestedSpeed(QPainter &p) {
   p.setFont(font);
   p.setPen(QPen(QColor(100, 220, 100), 4));
   p.drawText(rect, Qt::AlignCenter, mapdSuggestedSpeedStr);
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintNextSpeedBump(QPainter &p) {
+  if (nextSpeedBumpStr.isEmpty()) {
+    return;
+  }
+
+  p.save();
+
+  QFont font = InterFont(36, QFont::DemiBold);
+
+  int textWidth = QFontMetrics(font).horizontalAdvance(nextSpeedBumpStr);
+  QRect rect((width() - (textWidth + 80)) / 2, 76, textWidth + 80, 46);
+
+  p.setBrush(blackColor(180));
+  p.setOpacity(1.0);
+  p.setPen(QPen(blackColor(), 8));
+  p.drawRoundedRect(rect, 20, 20);
+
+  p.setFont(font);
+  p.setPen(QPen(QColor(255, 200, 50), 4));
+  p.drawText(rect, Qt::AlignCenter, nextSpeedBumpStr);
 
   p.restore();
 }
