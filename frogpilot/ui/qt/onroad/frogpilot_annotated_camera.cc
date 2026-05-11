@@ -216,7 +216,7 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
     tileLoadTimer.invalidate();
   }
   speedBumpAreaCountLast = speedBumpAreaCount;
-  if (tileLoadTimer.isValid() && tileLoadTimer.elapsed() < 60000) {
+  if (tileLoadTimer.isValid() && tileLoadTimer.elapsed() < 15000) {
     speedBumpAreaStr = QString("Map: %1 bumps in tile").arg(speedBumpAreaCount);
   } else {
     speedBumpAreaStr = QString();
@@ -325,7 +325,6 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     paintRoadName(p);
   }
 
-  paintMapdSuggestedSpeed(p);
   paintNextSpeedBump(p);
   paintSpeedBumpAreaCount(p);
 
@@ -951,9 +950,9 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedBumpAreaCount(QPainter &p) {
 
   p.save();
 
-  QFont font = InterFont(40, QFont::Bold);
+  QFont font = InterFont(34, QFont::DemiBold);
   int textWidth = QFontMetrics(font).horizontalAdvance(speedBumpAreaStr);
-  QRect rect((width() - (textWidth + 100)) / 2, height() / 2 - 40, textWidth + 100, 56);
+  QRect rect(width() - textWidth - 120, 20, textWidth + 80, 46);
 
   p.setBrush(QColor(0, 0, 0, 210));
   p.setOpacity(1.0);
