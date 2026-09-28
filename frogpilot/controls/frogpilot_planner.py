@@ -207,6 +207,6 @@ class FrogPilotPlanner:
     frogpilotPlan.weatherDaytime = self.frogpilot_weather.is_daytime
     frogpilotPlan.weatherId = self.frogpilot_weather.weather_id
 
-    frogpilotPlan.massageReminderTimeLeft = float(self.params_memory.get("MassageReminderTimeLeft", encoding="utf-8") or "0.0")
+    frogpilotPlan.massageReminderTimeLeft = float(self.params_memory.get("MassageReminderTimeLeft") or 0.0)
 
     pm.send("frogpilotPlan", frogpilot_plan_send)

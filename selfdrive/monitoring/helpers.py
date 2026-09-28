@@ -27,9 +27,11 @@ class DRIVER_MONITOR_SETTINGS:
     # Read user-configured delays from params (if available)
     if params is not None:
       try:
-        green_delay = int(params.get("DMGreenAlertDelay", encoding='utf-8') or "5")
-        beeping_delay = int(params.get("DMBeepingDelay", encoding='utf-8') or "15")
-        critical_delay = int(params.get("DMCriticalDelay", encoding='utf-8') or "30")
+        # Params.get is type-aware on this branch and returns an int for these
+        # keys; it takes no encoding argument.
+        green_delay = int(params.get("DMGreenAlertDelay") or 5)
+        beeping_delay = int(params.get("DMBeepingDelay") or 15)
+        critical_delay = int(params.get("DMCriticalDelay") or 30)
       except (ValueError, TypeError):
         # Fallback to defaults if param parsing fails
         green_delay = 5
