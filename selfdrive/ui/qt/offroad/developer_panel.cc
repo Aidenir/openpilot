@@ -289,8 +289,15 @@ void DeveloperPanel::updateToggles(bool _offroad) {
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(cp_bytes.data(), cp_bytes.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
 
+    // Don't trust CarParams from a drive where the car wasn't recognized: fingerprinting falls
+    // back to the mock interface, which never advertises alpha longitudinal, and forgetting the
+    // user's choice there would lose it permanently.
+    const bool car_recognized = std::string(CP.getBrand().cStr()) != "mock";
+
     if (!CP.getAlphaLongitudinalAvailable() || is_release) {
-      params.remove("AlphaLongitudinalEnabled");
+      if (car_recognized) {
+        params.remove("AlphaLongitudinalEnabled");
+      }
       experimentalLongitudinalToggle->setEnabled(false);
     }
 

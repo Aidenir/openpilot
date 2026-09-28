@@ -105,10 +105,14 @@ class SelfdriveD:
     car_recognized = self.CP.brand != 'mock'
 
     # cleanup old params
-    if not self.CP.alphaLongitudinalAvailable:
-      self.params.remove("AlphaLongitudinalEnabled")
-    if not self.CP.openpilotLongitudinalControl:
-      self.params.remove("ExperimentalMode")
+    # NOTE: only trust the CarParams when the car was actually fingerprinted. A failed fingerprint
+    # falls back to the mock interface, which never advertises any longitudinal support, so doing
+    # this cleanup there would silently throw away the user's choice for good.
+    if car_recognized:
+      if not self.CP.alphaLongitudinalAvailable:
+        self.params.remove("AlphaLongitudinalEnabled")
+      if not self.CP.openpilotLongitudinalControl:
+        self.params.remove("ExperimentalMode")
 
     self.CS_prev = car.CarState.new_message()
     self.AM = AlertManager()

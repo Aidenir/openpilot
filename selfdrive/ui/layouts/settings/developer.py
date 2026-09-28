@@ -32,7 +32,9 @@ class DeveloperLayout(Widget):
   def __init__(self):
     super().__init__()
     self._params = Params()
-    self._is_release = self._params.get_bool("IsReleaseBranch")
+    # FrogPilot always allows "openpilot Longitudinal Control (Alpha)", matching the Qt
+    # developer panel (selfdrive/ui/qt/offroad/developer_panel.cc) and card.py.
+    self._is_release = False
 
     # Build items and keep references for callbacks/state updates
     self._adb_toggle = toggle_item(
@@ -114,9 +116,13 @@ class DeveloperLayout(Widget):
     # CP gating
     if ui_state.CP is not None:
       alpha_avail = ui_state.CP.alphaLongitudinalAvailable
+      # a failed fingerprint falls back to the mock interface, which never advertises alpha
+      # longitudinal: don't throw away the user's choice based on that
+      car_recognized = ui_state.CP.brand != 'mock'
       if not alpha_avail or self._is_release:
         self._alpha_long_toggle.set_visible(False)
-        self._params.remove("AlphaLongitudinalEnabled")
+        if car_recognized:
+          self._params.remove("AlphaLongitudinalEnabled")
       else:
         self._alpha_long_toggle.set_visible(True)
 

@@ -38,7 +38,9 @@ class TogglesLayout(Widget):
   def __init__(self):
     super().__init__()
     self._params = Params()
-    self._is_release = self._params.get_bool("IsReleaseBranch")
+    # FrogPilot always allows "openpilot Longitudinal Control (Alpha)", matching
+    # TogglesPanel::updateToggles() in selfdrive/ui/qt/offroad/settings.cc
+    self._is_release = False
 
     # param, title, desc, icon, needs_restart
     self._toggle_defs = {
@@ -176,7 +178,10 @@ class TogglesLayout(Widget):
         self._toggles["ExperimentalMode"].action_item.set_enabled(False)
         self._toggles["ExperimentalMode"].action_item.set_state(False)
         self._long_personality_setting.action_item.set_enabled(False)
-        self._params.remove("ExperimentalMode")
+        # ...but don't forget the user's choice based on a drive where the car wasn't recognized,
+        # the mock interface never reports longitudinal control
+        if ui_state.CP.brand != 'mock':
+          self._params.remove("ExperimentalMode")
 
         unavailable = tr("Experimental mode is currently unavailable on this car since the car's stock ACC is used for longitudinal control.")
 

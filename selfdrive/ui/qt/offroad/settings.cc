@@ -188,7 +188,11 @@ void TogglesPanel::updateToggles() {
       // no long for now
       experimental_mode_toggle->setEnabled(false);
       long_personality_setting->setEnabled(false);
-      params.remove("ExperimentalMode");
+      // ...but don't forget the user's choice based on a drive where the car wasn't recognized,
+      // the mock interface never reports longitudinal control.
+      if (std::string(CP.getBrand().cStr()) != "mock") {
+        params.remove("ExperimentalMode");
+      }
 
       const QString unavailable = tr("Experimental mode is currently unavailable on this car since the car's stock ACC is used for longitudinal control.");
 

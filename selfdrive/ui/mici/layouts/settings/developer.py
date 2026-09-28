@@ -81,9 +81,11 @@ class DeveloperLayoutMici(NavWidget):
     release_blocked_toggles = (self._joystick_toggle, self._long_maneuver_toggle, self._alpha_long_toggle)
     engaged_blocked_toggles = (self._long_maneuver_toggle, self._alpha_long_toggle)
 
-    # Hide non-release toggles on release builds
+    # FrogPilot always allows "openpilot Longitudinal Control (Alpha)", matching the Qt developer
+    # panel (selfdrive/ui/qt/offroad/developer_panel.cc) and card.py, so nothing is release-gated.
+    self._is_release = False
     for item in release_blocked_toggles:
-      item.set_visible(not ui_state.is_release)
+      item.set_visible(not self._is_release)
 
     # Disable toggles that require offroad
     for item in onroad_blocked_toggles:
@@ -114,9 +116,13 @@ class DeveloperLayoutMici(NavWidget):
     # CP gating
     if ui_state.CP is not None:
       alpha_avail = ui_state.CP.alphaLongitudinalAvailable
-      if not alpha_avail or ui_state.is_release:
+      # a failed fingerprint falls back to the mock interface, which never advertises alpha
+      # longitudinal: don't throw away the user's choice based on that
+      car_recognized = ui_state.CP.brand != 'mock'
+      if not alpha_avail or self._is_release:
         self._alpha_long_toggle.set_visible(False)
-        ui_state.params.remove("AlphaLongitudinalEnabled")
+        if car_recognized:
+          ui_state.params.remove("AlphaLongitudinalEnabled")
       else:
         self._alpha_long_toggle.set_visible(True)
 
