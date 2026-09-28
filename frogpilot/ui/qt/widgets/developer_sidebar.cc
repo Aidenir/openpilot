@@ -64,7 +64,6 @@ void DeveloperSidebar::updateState(const UIState &s, const FrogPilotUIState &fs)
   const SubMaster &sm = *(s.sm);
 
   const FrogPilotUIScene &frogpilot_scene = fs.frogpilot_scene;
-  const SubMaster &sm = *(s.sm);
   const SubMaster &fpsm = *(fs.sm);
 
   const cereal::CarControl::Reader &carControl = fpsm["carControl"].getCarControl();
