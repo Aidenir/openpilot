@@ -348,6 +348,25 @@ struct MapdIn @0xc86a3d38d13eb3ef {
   bool @3 :Bool;
 }
 
+# WARNING: must be kept in perfect sync (names and values) with the HighwayClass
+# enum in mapd's cereal/custom/custom.capnp and cereal/offline/offline.capnp.
+enum HighwayClass {
+  unknown @0;
+  motorway @1;
+  motorwayLink @2;
+  trunk @3;
+  trunkLink @4;
+  primary @5;
+  primaryLink @6;
+  secondary @7;
+  secondaryLink @8;
+  tertiary @9;
+  tertiaryLink @10;
+  unclassified @11;
+  residential @12;
+  livingStreet @13;
+}
+
 enum RoadContext {
   freeway @0;
   city @1;
@@ -379,6 +398,11 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   mapCurveSpeed @21 :Float32;
   waySelectionType @22 :WaySelectionType;
   speedLimitAccepted @23 :Bool;
-  nextSpeedBumpDistance @24 :Float32;
-  speedBumpAreaCount @25 :Int32;
+  highwayClass @24 :HighwayClass;
+  wayId @25 :Int64;
+  conditionalSpeedLimit @26 :Text;
+  isForward @27 :Bool;
+  locationMonoTime @28 :UInt64;
+  nextSpeedBumpDistance @29 :Float32;
+  speedBumpAreaCount @30 :Int32;
 }
