@@ -38,6 +38,10 @@ FrogPilotAnnotatedCameraWidget::FrogPilotAnnotatedCameraWidget(QWidget *parent) 
   QObject::connect(uiState(), &UIState::offroadTransition, [this] {
     standstillTimer.invalidate();
 
+    tileLoadTimer.invalidate();
+    tileLoadedLast = false;
+    speedBumpAreaCountLast = 0;
+
     QJsonObject stats = QJsonDocument::fromJson(QString::fromStdString(params.get("FrogPilotStats")).toUtf8()).object();
     stats["FrogHops"] = stats.value("FrogHops").toInt(0) + frogHopCount;
     params.putNonBlocking("FrogPilotStats", QJsonDocument(stats).toJson(QJsonDocument::Compact).toStdString());
@@ -199,25 +203,24 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   float speedLimitOffset = frogpilotPlan.getSlcSpeedLimitOffset() * speedConversion;
   speedLimitOffsetStr = (speedLimitOffset != 0) ? QString::number(speedLimitOffset, 'f', 0).prepend((speedLimitOffset > 0) ? "+" : "-") : "–";
 
-  float mapdSuggestedSpeedRaw = frogpilotPlan.getMapdSuggestedSpeed();
-  mapdSuggestedSpeedStr = mapdSuggestedSpeedRaw > 0
-    ? QString("mapd: %1").arg(QString::number(std::nearbyint(mapdSuggestedSpeedRaw * speedConversion)))
+  float nextSpeedBumpDistance = frogpilotPlan.getNextSpeedBumpDistance() * distanceConversion;
+  nextSpeedBumpStr = frogpilotPlan.getHasNextSpeedBump()
+    ? tr("Bump: %1").arg(QString::number(std::nearbyint(nextSpeedBumpDistance)) + leadDistanceUnit)
     : QString();
 
-  float nextSpeedBumpDistRaw = frogpilotPlan.getNextSpeedBumpDistance();
-  nextSpeedBumpStr = nextSpeedBumpDistRaw > 0
-    ? QString("bump: %1 m").arg(QString::number(std::nearbyint(nextSpeedBumpDistRaw)))
-    : QString();
-
+  // "mapd" only exposes the tile's bump count and a "map data is loaded" level, so a tile load is
+  // detected either by that level going false -> true or by the count changing underneath us
+  bool tileLoaded = frogpilotPlan.getTileLoaded();
   int speedBumpAreaCount = frogpilotPlan.getSpeedBumpAreaCount();
-  if (speedBumpAreaCount > 0 && speedBumpAreaCountLast == 0) {
-    tileLoadTimer.start();
-  } else if (speedBumpAreaCount == 0) {
+  if (tileLoaded && (!tileLoadedLast || speedBumpAreaCount != speedBumpAreaCountLast)) {
+    tileLoadTimer.restart();
+  } else if (!tileLoaded) {
     tileLoadTimer.invalidate();
   }
   speedBumpAreaCountLast = speedBumpAreaCount;
+  tileLoadedLast = tileLoaded;
   if (tileLoadTimer.isValid() && tileLoadTimer.elapsed() < 15000) {
-    speedBumpAreaStr = QString("Map: %1 bumps in tile").arg(speedBumpAreaCount);
+    speedBumpAreaStr = tr("Map: %1 bumps in tile").arg(speedBumpAreaCount);
   } else {
     speedBumpAreaStr = QString();
   }
@@ -276,6 +279,8 @@ void FrogPilotAnnotatedCameraWidget::mousePressEvent(QMouseEvent *mouseEvent) {
 }
 
 void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState &s) {
+  bottomBannerOffset = 5;
+
   if (!hideBottomIcons && frogpilot_toggles.value("cem_status").toBool()) {
     paintCEMStatus(p);
   } else {
@@ -325,8 +330,13 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     paintRoadName(p);
   }
 
-  paintNextSpeedBump(p);
-  paintSpeedBumpAreaCount(p);
+  if (frogpilot_toggles.value("speed_bump_ui").toBool()) {
+    paintNextSpeedBump(p);
+  }
+
+  if (frogpilot_toggles.value("speed_bump_tile_count_ui").toBool()) {
+    paintSpeedBumpAreaCount(p);
+  }
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
   if (!hideSpeedLimit && (frogpilot_toggles.value("show_speed_limits").toBool() || frogpilot_toggles.value("speed_limit_controller").toBool())) {
@@ -895,30 +905,6 @@ void FrogPilotAnnotatedCameraWidget::paintRadarTracks(QPainter &p) {
   p.restore();
 }
 
-void FrogPilotAnnotatedCameraWidget::paintMapdSuggestedSpeed(QPainter &p) {
-  if (mapdSuggestedSpeedStr.isEmpty()) {
-    return;
-  }
-
-  p.save();
-
-  QFont font = InterFont(36, QFont::DemiBold);
-
-  int textWidth = QFontMetrics(font).horizontalAdvance(mapdSuggestedSpeedStr);
-  QRect rect((width() - (textWidth + 80)) / 2, 20, textWidth + 80, 46);
-
-  p.setBrush(blackColor(180));
-  p.setOpacity(1.0);
-  p.setPen(QPen(blackColor(), 8));
-  p.drawRoundedRect(rect, 20, 20);
-
-  p.setFont(font);
-  p.setPen(QPen(QColor(100, 220, 100), 4));
-  p.drawText(rect, Qt::AlignCenter, mapdSuggestedSpeedStr);
-
-  p.restore();
-}
-
 void FrogPilotAnnotatedCameraWidget::paintNextSpeedBump(QPainter &p) {
   if (nextSpeedBumpStr.isEmpty()) {
     return;
@@ -929,16 +915,19 @@ void FrogPilotAnnotatedCameraWidget::paintNextSpeedBump(QPainter &p) {
   QFont font = InterFont(36, QFont::DemiBold);
 
   int textWidth = QFontMetrics(font).horizontalAdvance(nextSpeedBumpStr);
-  QRect rect((width() - (textWidth + 80)) / 2, 76, textWidth + 80, 46);
+
+  QSize size(textWidth + 80, 46);
+  QRect bumpRect = QStyle::alignedRect(Qt::LeftToRight, Qt::AlignHCenter | Qt::AlignBottom, size, rect().adjusted(0, 0, 0, -bottomBannerOffset));
+  bottomBannerOffset += bumpRect.height() + UI_BORDER_SIZE / 2;
 
   p.setBrush(blackColor(180));
   p.setOpacity(1.0);
   p.setPen(QPen(blackColor(), 8));
-  p.drawRoundedRect(rect, 20, 20);
+  p.drawRoundedRect(bumpRect, 20, 20);
 
   p.setFont(font);
   p.setPen(QPen(QColor(255, 200, 50), 4));
-  p.drawText(rect, Qt::AlignCenter, nextSpeedBumpStr);
+  p.drawText(bumpRect, Qt::AlignCenter, nextSpeedBumpStr);
 
   p.restore();
 }
@@ -952,16 +941,19 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedBumpAreaCount(QPainter &p) {
 
   QFont font = InterFont(34, QFont::DemiBold);
   int textWidth = QFontMetrics(font).horizontalAdvance(speedBumpAreaStr);
-  QRect rect(width() - textWidth - 120, 20, textWidth + 80, 46);
+
+  QSize size(textWidth + 80, 46);
+  QRect areaRect = QStyle::alignedRect(Qt::LeftToRight, Qt::AlignHCenter | Qt::AlignBottom, size, rect().adjusted(0, 0, 0, -bottomBannerOffset));
+  bottomBannerOffset += areaRect.height() + UI_BORDER_SIZE / 2;
 
   p.setBrush(QColor(0, 0, 0, 210));
   p.setOpacity(1.0);
   p.setPen(QPen(QColor(255, 200, 50), 6));
-  p.drawRoundedRect(rect, 24, 24);
+  p.drawRoundedRect(areaRect, 24, 24);
 
   p.setFont(font);
   p.setPen(QPen(QColor(255, 200, 50), 4));
-  p.drawText(rect, Qt::AlignCenter, speedBumpAreaStr);
+  p.drawText(areaRect, Qt::AlignCenter, speedBumpAreaStr);
 
   p.restore();
 }
@@ -978,7 +970,8 @@ void FrogPilotAnnotatedCameraWidget::paintRoadName(QPainter &p) {
   int textWidth = QFontMetrics(font).horizontalAdvance(roadName);
 
   QSize size(textWidth + 100, 50);
-  QRect roadNameRect = QStyle::alignedRect(Qt::LeftToRight, Qt::AlignHCenter | Qt::AlignBottom, size, rect().adjusted(0, 0, 0, -5));
+  QRect roadNameRect = QStyle::alignedRect(Qt::LeftToRight, Qt::AlignHCenter | Qt::AlignBottom, size, rect().adjusted(0, 0, 0, -bottomBannerOffset));
+  bottomBannerOffset += roadNameRect.height() + UI_BORDER_SIZE / 2;
 
   p.setBrush(blackColor(166));
   p.setOpacity(1.0);

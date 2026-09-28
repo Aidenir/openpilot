@@ -96,7 +96,7 @@ void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
     {tr("System Settings"), tr("<b>Manage backups, device settings, screen options, storage, and tools to keep FrogPilot running smoothly.</b>"), "../../frogpilot/assets/toggle_icons/icon_system.png"},
     {tr("Theme and Appearance"), tr("<b>Customize the look of the driving screen and interface, including themes!</b>"), "../../frogpilot/assets/toggle_icons/icon_display.png"},
     {tr("Vehicle Settings"), tr("<b>Configure car-specific options and steering wheel button mappings.</b>"), "../../frogpilot/assets/toggle_icons/icon_vehicle.png"},
-    {tr("Aidenirs Settings"), tr("<b>Custom settings for driver monitoring timing and massage reminders.</b>"), "../../frogpilot/assets/toggle_icons/icon_system.png"}
+    {tr("Aidenirs Settings"), tr("<b>Custom settings for driver monitoring timing, massage reminders, and the speed bump display.</b>"), "../../frogpilot/assets/toggle_icons/icon_system.png"}
   };
 
   for (size_t i = 0; i < panelInfo.size(); ++i) {

@@ -188,6 +188,8 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   nextSpeedBumpDistance @37 :Float32;
   speedBumpAreaCount @38 :Int32;
   massageReminderTimeLeft @39 :Float32;
+  hasNextSpeedBump @40 :Bool;
+  tileLoaded @41 :Bool;
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {
@@ -407,4 +409,5 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   locationMonoTime @28 :UInt64;
   nextSpeedBumpDistance @29 :Float32;
   speedBumpAreaCount @30 :Int32;
+  hasNextSpeedBump @31 :Bool;
 }

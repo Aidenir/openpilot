@@ -414,6 +414,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"SNGHack", {PERSISTENT, BOOL, "1", "0", 2}},
     {"SoundPack", {PERSISTENT, STRING, "frog", "stock", 0}},
     {"SoundToDownload", {CLEAR_ON_MANAGER_START, STRING, "", ""}},
+    {"SpeedBumpTileCountUI", {PERSISTENT, BOOL, "0", "0", 3}},
+    {"SpeedBumpUI", {PERSISTENT, BOOL, "1", "0", 1}},
     {"SpeedLimitAccepted", {CLEAR_ON_MANAGER_START, BOOL, "0", "0"}},
     {"SpeedLimitChangedAlert", {PERSISTENT, BOOL, "0", "0", 0}},
     {"SpeedLimitController", {PERSISTENT, BOOL, "1", "0", 0}},

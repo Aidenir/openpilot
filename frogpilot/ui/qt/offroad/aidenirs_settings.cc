@@ -23,6 +23,16 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(QWidget *parent)
      tr("Massage Reminder"),
      tr("<b>Enable periodic reminders to turn on the massage function.</b> A gentle prompt will appear every 10 minutes while driving."),
      ""},
+
+    {"SpeedBumpUI",
+     tr("Speed Bump Display"),
+     tr("<b>Display the distance to the next mapped speed bump ahead.</b> Requires map data from <b>mapd</b>."),
+     ""},
+
+    {"SpeedBumpTileCountUI",
+     tr("Speed Bump Tile Count (Debug)"),
+     tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
+     ""},
   };
 
   for (const auto &[param, title, desc, icon] : aidenirsToggles) {
@@ -47,7 +57,7 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(QWidget *parent)
         tr(" seconds"), std::map<float, QString>(), 1.0f
       );
     } else {
-      // MassageReminder is a simple boolean toggle
+      // MassageReminder, SpeedBumpUI and SpeedBumpTileCountUI are simple boolean toggles
       toggle = new ParamControl(param, title, desc, icon);
     }
 

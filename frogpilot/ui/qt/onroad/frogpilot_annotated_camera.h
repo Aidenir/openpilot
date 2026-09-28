@@ -68,7 +68,6 @@ private:
   void paintPedalIcons(QPainter &p);
   void paintPendingSpeedLimit(QPainter &p);
   void paintRadarTracks(QPainter &p);
-  void paintMapdSuggestedSpeed(QPainter &p);
   void paintNextSpeedBump(QPainter &p);
   void paintSpeedBumpAreaCount(QPainter &p);
   void paintRoadName(QPainter &p);
@@ -93,15 +92,18 @@ private:
   bool longitudinalPaused;
   bool redLight;
   bool speedLimitChanged;
+  bool tileLoadedLast = false;
   bool weatherDaytime;
 
   int animationFrameIndex;
+  int bottomBannerOffset = 5;
   int desiredFollowDistance;
   int frogHopCount;
   int signalAnimationLength;
   int signalHeight;
   int signalMovement;
   int signalWidth;
+  int speedBumpAreaCountLast = 0;
   int totalFrames;
   int weatherId;
 
@@ -172,10 +174,8 @@ private:
   QString leadDistanceUnit;
   QString leadSpeedUnit;
   QString roadName;
-  QString mapdSuggestedSpeedStr;
   QString nextSpeedBumpStr;
   QString speedBumpAreaStr;
-  int speedBumpAreaCountLast = 0;
   QString speedLimitOffsetStr;
   QString speedUnit;
 

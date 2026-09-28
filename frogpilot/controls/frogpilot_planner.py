@@ -185,9 +185,12 @@ class FrogPilotPlanner:
     frogpilotPlan.roadCurvature = self.road_curvature
 
     frogpilotPlan.slcMapSpeedLimit = self.frogpilot_vcruise.slc.map_speed_limit
-    frogpilotPlan.mapdSuggestedSpeed = sm["mapdOut"].suggestedSpeed
-    frogpilotPlan.nextSpeedBumpDistance = sm["mapdOut"].nextSpeedBumpDistance
-    frogpilotPlan.speedBumpAreaCount = sm["mapdOut"].speedBumpAreaCount
+    mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
+    frogpilotPlan.mapdSuggestedSpeed = sm["mapdOut"].suggestedSpeed if mapd_alive else 0.0
+    frogpilotPlan.nextSpeedBumpDistance = sm["mapdOut"].nextSpeedBumpDistance if mapd_alive else 0.0
+    frogpilotPlan.hasNextSpeedBump = sm["mapdOut"].hasNextSpeedBump if mapd_alive else False
+    frogpilotPlan.speedBumpAreaCount = sm["mapdOut"].speedBumpAreaCount if mapd_alive else 0
+    frogpilotPlan.tileLoaded = sm["mapdOut"].tileLoaded if mapd_alive else False
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed

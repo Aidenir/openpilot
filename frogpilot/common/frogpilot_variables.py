@@ -538,6 +538,9 @@ class FrogPilotVariables:
 
     toggle.massage_reminder = self.get_value("MassageReminder")
 
+    toggle.speed_bump_ui = self.get_value("SpeedBumpUI")
+    toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
+
     device_management = self.get_value("DeviceManagement")
     toggle.device_shutdown_time = DEVICE_SHUTDOWN_TIMES.get(self.get_value("DeviceShutdown", cast=int, condition=device_management))
     toggle.increase_thermal_limits = self.get_value("IncreaseThermalLimits", condition=device_management)
