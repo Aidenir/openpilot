@@ -221,6 +221,8 @@ struct FrogPilotPlan @0xa1680744031fdb2d {
   weatherDaytime @35 :Bool;
   weatherId @36 :Int16;
   massageReminderTimeLeft @37 :Float32;
+  nextSpeedBumpDistance @38 :Float32;
+  speedBumpAreaCount @39 :Int32;
 }
 
 struct FrogPilotRadarState @0xcb9fd56c7057593a {

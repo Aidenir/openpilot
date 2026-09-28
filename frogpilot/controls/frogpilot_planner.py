@@ -192,4 +192,8 @@ class FrogPilotPlanner:
 
     frogpilotPlan.massageReminderTimeLeft = float(params_memory.get("MassageReminderTimeLeft", encoding="utf-8") or "0.0")
 
+    # mapd writes these to /dev/shm/params; 0.9.7 has no mapdOut capnp channel.
+    frogpilotPlan.nextSpeedBumpDistance = params_memory.get_float("NextSpeedBumpDistance")
+    frogpilotPlan.speedBumpAreaCount = params_memory.get_int("SpeedBumpAreaCount")
+
     pm.send("frogpilotPlan", frogpilot_plan_send)
