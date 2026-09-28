@@ -1,13 +1,29 @@
 #pragma once
 
-#include "frogpilot/ui/qt/widgets/frogpilot_controls.h"
+#include "frogpilot/ui/qt/offroad/frogpilot_settings.h"
 
 class AidenirsSettingsPanel : public FrogPilotListWidget {
   Q_OBJECT
 
 public:
-  explicit AidenirsSettingsPanel(QWidget *parent = nullptr);
+  explicit AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bool forceOpen = false);
+
+protected:
+  void showEvent(QShowEvent *event) override;
 
 private:
-  std::map<std::string, AbstractControl*> toggles;
+  void updateDelayRanges();
+  void updateToggles();
+
+  bool forceOpenDescriptions;
+
+  std::map<float, QString> secondLabels;
+
+  std::map<QString, AbstractControl*> toggles;
+
+  QSet<QString> driverMonitoringDelayKeys {"DMBeepingDelay", "DMCriticalDelay", "DMGreenAlertDelay"};
+
+  FrogPilotSettingsWindow *parent;
+
+  Params params;
 };

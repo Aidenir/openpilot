@@ -64,7 +64,7 @@ bool nnffLogFileExists(const QString &carFingerprint) {
 }
 
 void FrogPilotSettingsWindow::createPanelButtons(FrogPilotListWidget *list) {
-  AidenirsSettingsPanel *aidenirsSettingsPanel = new AidenirsSettingsPanel(this);
+  AidenirsSettingsPanel *aidenirsSettingsPanel = new AidenirsSettingsPanel(this, !shownDescriptions.value("AidenirsSettingsPanel").toBool(false));
   FrogPilotDataPanel *frogpilotDataPanel = new FrogPilotDataPanel(this, !shownDescriptions.value("FrogPilotDataPanel").toBool(false));
   FrogPilotDevicePanel *frogpilotDevicePanel = new FrogPilotDevicePanel(this, !shownDescriptions.value("FrogPilotDevicePanel").toBool(false));
   FrogPilotLateralPanel *frogpilotLateralPanel = new FrogPilotLateralPanel(this, !shownDescriptions.value("FrogPilotLateralPanel").toBool(false));
