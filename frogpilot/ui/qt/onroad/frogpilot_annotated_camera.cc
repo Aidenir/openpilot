@@ -1,5 +1,7 @@
 #include "frogpilot/ui/qt/onroad/frogpilot_annotated_camera.h"
 
+#include <QPainterPath>
+
 FrogPilotAnnotatedCameraWidget::FrogPilotAnnotatedCameraWidget(QWidget *parent) : QWidget(parent) {
   animationTimer = new QTimer(this);
 
@@ -211,6 +213,16 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   // "mapd" only exposes the tile's bump count and a "map data is loaded" level, so a tile load is
   // detected either by that level going false -> true or by the count changing underneath us
   bool tileLoaded = frogpilotPlan.getTileLoaded();
+  // Imminent-bump warning. The sound comes from the speedBumpAhead event; this is
+  // the visual, drawn at the top so it does not compete with the alert band at the
+  // bottom. Shown a little wider than the alert threshold so it is on screen before
+  // the pling rather than appearing with it.
+  int warnAt = frogpilot_toggles.value("speed_bump_alert_distance").toInt();
+  float bumpMetres = frogpilotPlan.getNextSpeedBumpDistance();
+  speedBumpWarningStr = (frogpilotPlan.getHasNextSpeedBump() && bumpMetres <= warnAt * 1.5f)
+    ? tr("SPEED BUMP")
+    : QString();
+
   int speedBumpAreaCount = frogpilotPlan.getSpeedBumpAreaCount();
   if (tileLoaded && (!tileLoadedLast || speedBumpAreaCount != speedBumpAreaCountLast)) {
     tileLoadTimer.restart();
@@ -332,6 +344,10 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
 
   if (frogpilot_toggles.value("speed_bump_ui").toBool()) {
     paintNextSpeedBump(p);
+  }
+
+  if (frogpilot_toggles.value("speed_bump_ui").toBool()) {
+    paintSpeedBumpWarning(p);
   }
 
   if (frogpilot_toggles.value("speed_bump_tile_count_ui").toBool()) {
@@ -928,6 +944,30 @@ void FrogPilotAnnotatedCameraWidget::paintNextSpeedBump(QPainter &p) {
   p.setFont(font);
   p.setPen(QPen(QColor(255, 200, 50), 4));
   p.drawText(bumpRect, Qt::AlignCenter, nextSpeedBumpStr);
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintSpeedBumpWarning(QPainter &p) {
+  if (speedBumpWarningStr.isEmpty()) {
+    return;
+  }
+
+  p.save();
+
+  QFont font = InterFont(48, QFont::Bold);
+  int textWidth = QFontMetrics(font).horizontalAdvance(speedBumpWarningStr);
+
+  QSize size(textWidth + 100, 76);
+  QRect rect = QStyle::alignedRect(Qt::LeftToRight, Qt::AlignHCenter | Qt::AlignTop, size, this->rect().adjusted(0, 40, 0, 0));
+
+  p.setBrush(QColor(0, 0, 0, 210));
+  p.setPen(QPen(QColor(255, 200, 50), 6));
+  p.drawRoundedRect(rect, 24, 24);
+
+  p.setFont(font);
+  p.setPen(QPen(QColor(255, 200, 50)));
+  p.drawText(rect, Qt::AlignCenter, speedBumpWarningStr);
 
   p.restore();
 }

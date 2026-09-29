@@ -49,6 +49,11 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      tr("<b>Display the distance to the next mapped speed bump ahead.</b> Requires map data from <b>mapd</b>."),
      ""},
 
+    {"SpeedBumpAlertDistance",
+     tr("Speed Bump Warning Distance"),
+     tr("<b>How far before a speed bump to warn.</b> The map marks the middle of the bump, so this is measured to that point. At 50 km/h, 10 metres is under a second of warning."),
+     ""},
+
     {"SpeedBumpTileCountUI",
      tr("Speed Bump Tile Count (Debug)"),
      tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
@@ -58,7 +63,10 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
   for (const auto &[param, title, desc, icon] : aidenirsToggles) {
     AbstractControl *aidenirsToggle;
 
-    if (driverMonitoringDelayKeys.contains(param)) {
+    if (param == "SpeedBumpAlertDistance") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5, 100, tr(" meters"), std::map<float, QString>(), 5, true);
+
+    } else if (driverMonitoringDelayKeys.contains(param)) {
       // The ranges are placeholders; "updateDelayRanges" gives every delay its real range below
       FrogPilotParamValueControl *delayToggle = new FrogPilotParamValueControl(param, title, desc, icon, DM_GREEN_DELAY_MIN, DM_CRITICAL_DELAY_MAX, QString(), secondLabels, 1, true);
       QObject::connect(delayToggle, &FrogPilotParamValueControl::valueChanged, [key = param, this](float value) {
