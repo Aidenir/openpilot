@@ -191,6 +191,7 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   massageReminderTimeLeft @39 :Float32;
   hasNextSpeedBump @40 :Bool;
   tileLoaded @41 :Bool;
+  speedBumpDecel @42 :Float32;  # m/s^2, positive while braking for a speed bump, 0 otherwise
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {

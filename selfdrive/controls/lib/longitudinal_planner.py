@@ -184,8 +184,20 @@ class LongitudinalPlanner:
       output_a_target = min(output_a_target_mpc, output_a_target_e2e)
       self.output_should_stop = output_should_stop_e2e or output_should_stop_mpc
 
+    # FrogPilot: slowing for a mapped speed bump. Like the e2e target above this can only lower the acceleration, so a lead the
+    # MPC is already braking harder for still wins. It is needed because a lowered cruise speed never makes the MPC slow down
+    # harder than ~1.2-2.4 m/s^2 and only ramps into that over about a second, far too gentle for the ~25 m a driver brakes over.
+    # The request is already jerk-limited and bounded by the user's max deceleration; stale or missing frogpilotPlan means none
+    speed_bump_decel = float(np.clip(sm['frogpilotPlan'].speedBumpDecel, 0.0, -ACCEL_MIN)) if sm.alive['frogpilotPlan'] else 0.0
+    if speed_bump_decel > 0:
+      output_a_target = min(output_a_target, -speed_bump_decel)
+
     for idx in range(2):
       accel_clip[idx] = np.clip(accel_clip[idx], self.prev_accel_clip[idx] - 0.05, self.prev_accel_clip[idx] + 0.05)
+    # The lower clip's 1 m/s^2-per-second rate limit would otherwise hold a gentler deceleration profile (e.g. -1.75) back from
+    # the bump request for over a second. The request is jerk-limited itself, so let the clip follow it directly
+    if speed_bump_decel > 0:
+      accel_clip[0] = min(accel_clip[0], -speed_bump_decel)
     self.output_a_target = np.clip(output_a_target, accel_clip[0], accel_clip[1])
     self.prev_accel_clip = accel_clip
 

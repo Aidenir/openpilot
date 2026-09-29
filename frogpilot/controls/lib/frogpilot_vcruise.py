@@ -4,6 +4,7 @@ from openpilot.common.realtime import DT_MDL
 
 from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController
+from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, SpeedBumpController
 from openpilot.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
 
 OVERRIDE_FORCE_STOP_TIMER = 10
@@ -13,6 +14,7 @@ class FrogPilotVCruise:
     self.frogpilot_planner = FrogPilotPlanner
 
     self.csc = CurveSpeedController(self)
+    self.sbc = SpeedBumpController()
     self.slc = SpeedLimitController(self)
 
     self.forcing_stop = False
@@ -92,5 +94,29 @@ class FrogPilotVCruise:
       if frogpilot_toggles.speed_limit_controller:
         targets.append(max(self.slc.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff)
       v_cruise = min([target if target >= CRUISING_SPEED else v_cruise for target in targets])
+
+    # Speed bumps from mapd. Applied on its own rather than in "targets" above since the bump speed may be
+    # set below "CRUISING_SPEED", and it only ever lowers the cruise speed, so it's safe on top of a force stop.
+    # The deceleration it asks for ("self.sbc.decel") is published in frogpilotPlan.speedBumpDecel
+    if frogpilot_toggles.speed_bump_slowdown:
+      mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
+      has_bump = mapd_alive and sm["mapdOut"].hasNextSpeedBump
+      bump_distance = sm["mapdOut"].nextSpeedBumpDistance if mapd_alive else 0.0
+
+      config = SpeedBumpConfig(
+        v_target=frogpilot_toggles.speed_bump_slowdown_speed,
+        brake_time=frogpilot_toggles.speed_bump_slowdown_time,
+        max_decel=frogpilot_toggles.speed_bump_slowdown_max_decel,
+        strict=frogpilot_toggles.speed_bump_slowdown_strict,
+        response_lag=frogpilot_toggles.speed_bump_slowdown_response_time,
+        margin=frogpilot_toggles.speed_bump_slowdown_margin,
+        hold_distance=frogpilot_toggles.speed_bump_slowdown_hold,
+        jerk_scale=frogpilot_toggles.speed_bump_slowdown_jerk,
+      )
+      speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config)
+      if speed_bump_target is not None:
+        v_cruise = min(v_cruise, speed_bump_target)
+    elif self.sbc.tracked_distance is not None or self.sbc.target is not None:
+      self.sbc.reset()
 
     return v_cruise
