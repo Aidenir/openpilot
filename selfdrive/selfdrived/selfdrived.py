@@ -504,7 +504,9 @@ class SelfdriveD:
       else:
         massage_reminder_time_left = max(0.0, 600.0 - time_since_last_reminder)
 
-    self.params_memory.put("MassageReminderTimeLeft", str(massage_reminder_time_left))
+    # MassageReminderTimeLeft is registered FLOAT; put() is strictly typed and
+    # rejects a str, so pass the float itself.
+    self.params_memory.put("MassageReminderTimeLeft", float(massage_reminder_time_left))
 
     if self.frogpilot_toggles.conditional_experimental_mode:
       self.experimental_mode = self.sm['frogpilotPlan'].experimentalMode
