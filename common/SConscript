@@ -1,7 +1,14 @@
 Import('env', 'envCython', 'arch')
 
+# params.cc is compiled at -O1 on purpose. params_keys.h is a ~500-entry static
+# unordered_map that clang constant-folds at -O2, peaking over 2.3GB RSS - more
+# than a comma 3X has free. When that OOMs, system/manager/build.py retries the
+# *entire* build at -j4 and then -j1, so one file turns a few-minute rebuild into
+# an hour. It is a lookup table; there is no hot path to lose here.
+_params = env.Object('params', 'params.cc', CCFLAGS=env['CCFLAGS'] + ['-O1'])
+
 common_libs = [
-  'params.cc',
+  _params,
   'swaglog.cc',
   'util.cc',
   'watchdog.cc',
