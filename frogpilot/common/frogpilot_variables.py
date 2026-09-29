@@ -543,6 +543,22 @@ class FrogPilotVariables:
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
     toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
 
+    toggle.speed_bump_slowdown = toggle.openpilot_longitudinal and self.get_value("SpeedBumpSlowdown")
+    toggle.speed_bump_slowdown_max_decel = self.get_value("SpeedBumpSlowdownMaxDecel", cast=float, condition=toggle.speed_bump_slowdown,
+                                                          default=3.0, min=1.0, max=3.5)
+    # Stored in km/h whatever the unit setting, used in m/s
+    toggle.speed_bump_slowdown_speed = self.get_value("SpeedBumpSlowdownSpeed", cast=float, condition=toggle.speed_bump_slowdown,
+                                                      default=20.0, min=5.0, max=50.0) * CV.KPH_TO_MS
+    toggle.speed_bump_slowdown_time = self.get_value("SpeedBumpSlowdownTime", cast=float, condition=toggle.speed_bump_slowdown, default=2.0, min=0.5, max=5.0)
+    toggle.speed_bump_slowdown_strict = self.get_value("SpeedBumpSlowdownStrict", condition=toggle.speed_bump_slowdown)
+    # Advanced; below their tuning level these fall back to the defaults
+    toggle.speed_bump_slowdown_hold = self.get_value("SpeedBumpSlowdownHold", cast=float, condition=toggle.speed_bump_slowdown, default=6.0, min=0.0, max=20.0)
+    toggle.speed_bump_slowdown_jerk = self.get_value("SpeedBumpSlowdownJerk", cast=float, condition=toggle.speed_bump_slowdown, default=1.0, min=0.5, max=2.0)
+    toggle.speed_bump_slowdown_margin = self.get_value("SpeedBumpSlowdownMargin", cast=float, condition=toggle.speed_bump_slowdown,
+                                                       default=2.0, min=0.0, max=10.0)
+    toggle.speed_bump_slowdown_response_time = self.get_value("SpeedBumpSlowdownResponseTime", cast=float, condition=toggle.speed_bump_slowdown,
+                                                              default=0.3, min=0.0, max=1.0)
+
     device_management = self.get_value("DeviceManagement")
     toggle.device_shutdown_time = DEVICE_SHUTDOWN_TIMES.get(self.get_value("DeviceShutdown", cast=int, condition=device_management))
     toggle.increase_thermal_limits = self.get_value("IncreaseThermalLimits", condition=device_management)

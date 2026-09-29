@@ -47,6 +47,7 @@ class FrogPilotPlanner:
     self.model_length = 0
     self.road_curvature = 0
     self.time_to_curve = 0
+    self.speed_bump_decel = 0
     self.v_cruise = 0
 
     self.gps_position = None
@@ -122,6 +123,12 @@ class FrogPilotPlanner:
 
     self.v_cruise = self.frogpilot_vcruise.update(long_control_active, now, time_validated, v_cruise, v_ego, sm, frogpilot_toggles)
 
+    # Deceleration requested by the speed bump slowdown, applied by the longitudinal planner (see "speedBumpDecel" there). It is
+    # jerk-limited and never more than the "SpeedBumpSlowdownMaxDecel" setting (at most 3.5 m/s^2, the stock ACCEL_MIN). Nothing
+    # while openpilot isn't in control (including the gas being pressed), and coasting on request wins
+    speed_bump_active = long_control_active and frogpilot_toggles.speed_bump_slowdown and not sm["frogpilotCarState"].forceCoast
+    self.speed_bump_decel = self.frogpilot_vcruise.sbc.decel if speed_bump_active else 0.0
+
     if self.gps_valid and time_validated and frogpilot_toggles.weather_presets:
       self.frogpilot_weather.update_weather(now, frogpilot_toggles)
     else:
@@ -191,6 +198,7 @@ class FrogPilotPlanner:
     frogpilotPlan.hasNextSpeedBump = sm["mapdOut"].hasNextSpeedBump if mapd_alive else False
     frogpilotPlan.speedBumpAreaCount = sm["mapdOut"].speedBumpAreaCount if mapd_alive else 0
     frogpilotPlan.tileLoaded = sm["mapdOut"].tileLoaded if mapd_alive else False
+    frogpilotPlan.speedBumpDecel = float(self.speed_bump_decel)
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed
