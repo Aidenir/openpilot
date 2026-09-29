@@ -249,6 +249,48 @@ def user_soft_disable_alert(alert_text_2: str) -> AlertCallbackType:
     return UserSoftDisableAlert(alert_text_2)
   return func
 
+def _distracted_for(sm: messaging.SubMaster) -> str:
+  """How long the driver has been looking away, as a short suffix.
+
+  distractionTime is published by dmonitoringd (see selfdrive/monitoring/helpers.py)
+  and counts up from the moment awareness starts dropping. Returns "" when there is
+  nothing useful to show, so the alert falls back to its plain wording.
+  """
+  try:
+    seconds = sm['driverMonitoringState'].distractionTime
+  except Exception:
+    return ""
+  if seconds is None or seconds < 1:
+    return ""
+  if seconds < 60:
+    return f" for {int(seconds)}s"
+  return f" for {int(seconds) // 60}m{int(seconds) % 60:02d}s"
+
+
+def pre_driver_distracted_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
+  return Alert(
+    "Pay Attention",
+    "Looking Away" + _distracted_for(sm),
+    AlertStatus.normal, AlertSize.mid,
+    Priority.LOW, VisualAlert.none, AudibleAlert.none, .1)
+
+
+def prompt_driver_distracted_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
+  return Alert(
+    "Pay Attention",
+    "Driver Distracted" + _distracted_for(sm),
+    AlertStatus.userPrompt, AlertSize.mid,
+    Priority.MID, VisualAlert.steerRequired, AudibleAlert.promptDistracted, .1)
+
+
+def driver_distracted_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
+  return Alert(
+    "DISENGAGE IMMEDIATELY",
+    "Driver Distracted" + _distracted_for(sm),
+    AlertStatus.critical, AlertSize.full,
+    Priority.HIGH, VisualAlert.steerRequired, AudibleAlert.warningImmediate, .1)
+
+
 def startup_master_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
   branch = get_short_branch()  # Ensure get_short_branch is cached to avoid lags on startup
   if "REPLAY" in os.environ:
@@ -588,27 +630,15 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   },
 
   EventName.preDriverDistracted: {
-    ET.PERMANENT: Alert(
-      "Pay Attention",
-      "",
-      AlertStatus.normal, AlertSize.small,
-      Priority.LOW, VisualAlert.none, AudibleAlert.none, .1),
+    ET.PERMANENT: pre_driver_distracted_alert,
   },
 
   EventName.promptDriverDistracted: {
-    ET.PERMANENT: Alert(
-      "Pay Attention",
-      "Driver Distracted",
-      AlertStatus.userPrompt, AlertSize.mid,
-      Priority.MID, VisualAlert.steerRequired, AudibleAlert.promptDistracted, .1),
+    ET.PERMANENT: prompt_driver_distracted_alert,
   },
 
   EventName.driverDistracted: {
-    ET.PERMANENT: Alert(
-      "DISENGAGE IMMEDIATELY",
-      "Driver Distracted",
-      AlertStatus.critical, AlertSize.full,
-      Priority.HIGH, VisualAlert.steerRequired, AudibleAlert.warningImmediate, .1),
+    ET.PERMANENT: driver_distracted_alert,
   },
 
   EventName.preDriverUnresponsive: {
