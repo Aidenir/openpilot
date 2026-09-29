@@ -25,6 +25,9 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
   personality_btn = new DrivingPersonalityButton(this);
   personality_btn->setVisible(false);
 
+  speed_bump_mark_btn = new SpeedBumpMarkButton(this);
+  speed_bump_mark_btn->setVisible(false);
+
   screen_recorder = new ScreenRecorder(this);
   screen_recorder->setVisible(false);
 }
@@ -49,6 +52,16 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
   }
 
   dmon.onroad_distance_btn_enabled = onroad_distance_btn_enabled;
+
+  // On the driver's side, a little below the middle: clear of the set speed and speed
+  // limit sign at the top and the driver monitoring, compass and weather icons below
+  bool speed_bump_mark_btn_enabled = frogpilot_toggles.value("user_speed_bump_button").toBool();
+  speed_bump_mark_btn->setVisible(speed_bump_mark_btn_enabled);
+  if (speed_bump_mark_btn_enabled) {
+    int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - speed_bump_mark_btn->width() : UI_BORDER_SIZE * 2;
+    speed_bump_mark_btn->move(x, height() * 0.55 - speed_bump_mark_btn->height() / 2);
+    speed_bump_mark_btn->updateState();
+  }
 
   screen_recorder->move(experimental_btn->x() - UI_BORDER_SIZE - btn_size, experimental_btn->y());
   screen_recorder->setVisible(frogpilot_nvg->standstillDuration == 0 && !(frogpilot_nvg->signalStyle == "static" && carState.getRightBlinker()) && frogpilot_toggles.value("screen_recorder").toBool());

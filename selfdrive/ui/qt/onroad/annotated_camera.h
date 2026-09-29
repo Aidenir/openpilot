@@ -42,6 +42,7 @@ private:
   void paintEvent(QPaintEvent *event) override;
 
   DrivingPersonalityButton *personality_btn;
+  SpeedBumpMarkButton *speed_bump_mark_btn;
   ScreenRecorder *screen_recorder;
 
 protected:

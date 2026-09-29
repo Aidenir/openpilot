@@ -539,6 +539,7 @@ class FrogPilotVariables:
     toggle.massage_reminder = self.get_value("MassageReminder")
 
     toggle.speed_bump_ui = self.get_value("SpeedBumpUI")
+    toggle.user_speed_bump_button = self.get_value("UserSpeedBumpButton")
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
     toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
 

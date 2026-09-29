@@ -1,5 +1,15 @@
 #include "frogpilot/ui/qt/onroad/frogpilot_buttons.h"
 
+#include <algorithm>
+
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QPainter>
+#include <QTimer>
+
+#include "selfdrive/ui/qt/util.h"
+
 DrivingPersonalityButton::DrivingPersonalityButton(QWidget *parent) : QPushButton(parent) {
   setFixedSize(btn_size + UI_BORDER_SIZE, btn_size);
 
@@ -74,3 +84,117 @@ void DrivingPersonalityButton::paintEvent(QPaintEvent *event) {
 
   drawIcon(p, rect().center() + QPoint(UI_BORDER_SIZE / 2, 0), currentGif ? currentGif->currentPixmap() : currentImg, Qt::transparent, 1.0);
 }
+
+// How long to wait for mapd's reply before saying it did not answer. mapd polls every
+// 50 ms, so anything near this means it is not running.
+static constexpr int MARK_REPLY_TIMEOUT_MS = 2000;
+static const QColor MARK_COLOR(255, 200, 50);
+
+SpeedBumpMarkButton::SpeedBumpMarkButton(QWidget *parent) : QPushButton(parent) {
+  // Big enough to hit with a gloved thumb without looking for long
+  setFixedSize(260, 180);
+
+  holdTimer = new QTimer(this);
+  holdTimer->setSingleShot(true);
+  holdTimer->setInterval(UNDO_HOLD_MS);
+
+  QObject::connect(holdTimer, &QTimer::timeout, [this] {
+    holdFired = true;
+    sendRequest("undo", QDateTime::currentMSecsSinceEpoch());
+  });
+  QObject::connect(this, &QPushButton::pressed, [this] {
+    // The press, not the release, is the moment the driver is on the bump
+    pressMs = QDateTime::currentMSecsSinceEpoch();
+    holdFired = false;
+    holdTimer->start();
+    update();
+  });
+  QObject::connect(this, &QPushButton::released, [this] {
+    holdTimer->stop();
+    if (!holdFired) {
+      sendRequest("mark", pressMs);
+    }
+    update();
+  });
+}
+
+void SpeedBumpMarkButton::sendRequest(const QString &action, qint64 tapMs) {
+  // Unique per request even for two taps in the same millisecond. Written by hand
+  // rather than through QJsonDocument, which stores integers as doubles and could
+  // print a 13 digit id in exponent form that mapd's integer parse rejects.
+  qint64 id = std::max(tapMs, lastRequestId + 1);
+  lastRequestId = id;
+
+  QString request = QString("{\"id\":%1,\"action\":\"%2\",\"tapMs\":%3}").arg(id).arg(action).arg(tapMs);
+  params_memory.put("UserSpeedBumpRequest", request.toStdString());
+
+  pendingId = id;
+  pendingAction = action;
+  pendingSince = QDateTime::currentMSecsSinceEpoch();
+  showFeedback(action == "undo" ? tr("UNDOING") : tr("MARKING"), QString(), MARK_COLOR, MARK_REPLY_TIMEOUT_MS + 500);
+}
+
+void SpeedBumpMarkButton::showFeedback(const QString &title, const QString &detail, const QColor &color, int durationMs) {
+  feedbackTitle = title;
+  feedbackDetail = detail;
+  feedbackColor = color;
+  feedbackUntil = QDateTime::currentMSecsSinceEpoch() + durationMs;
+  update();
+}
+
+void SpeedBumpMarkButton::updateState() {
+  qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+  if (pendingId != 0) {
+    // Only read while a reply is outstanding: at most ~2 s of 20 Hz reads per tap
+    QJsonObject result = QJsonDocument::fromJson(QByteArray::fromStdString(params_memory.get("UserSpeedBumpResult"))).object();
+    if (static_cast<qint64>(result.value("id").toDouble()) == pendingId) {
+      bool ok = result.value("ok").toBool();
+      QString message = result.value("message").toString();
+      int total = result.value("total").toInt();
+
+      if (!ok) {
+        showFeedback(tr("NOT SAVED"), message, QColor(255, 80, 80), 4000);
+      } else if (pendingAction == "undo") {
+        showFeedback(tr("UNDONE"), tr("%1 saved").arg(total), QColor(200, 200, 200), 2500);
+      } else {
+        showFeedback(message == "Already marked" ? tr("ALREADY\nMARKED") : tr("MARKED"), tr("hold to undo"), QColor(80, 220, 100), 4000);
+      }
+      pendingId = 0;
+    } else if (now - pendingSince > MARK_REPLY_TIMEOUT_MS) {
+      showFeedback(tr("NOT SAVED"), tr("no reply from mapd"), QColor(255, 80, 80), 4000);
+      pendingId = 0;
+    }
+  }
+
+  if (!feedbackTitle.isEmpty() && now > feedbackUntil) {
+    feedbackTitle.clear();
+    feedbackDetail.clear();
+    update();
+  }
+}
+
+void SpeedBumpMarkButton::paintEvent(QPaintEvent *event) {
+  QPainter p(this);
+  p.setRenderHint(QPainter::Antialiasing);
+
+  bool feedback = !feedbackTitle.isEmpty();
+  QColor color = feedback ? feedbackColor : MARK_COLOR;
+
+  QRect box = rect().adjusted(4, 4, -4, -4);
+  p.setBrush(isDown() ? QColor(60, 60, 60, 230) : QColor(0, 0, 0, 180));
+  p.setPen(QPen(color, 6));
+  p.drawRoundedRect(box, 30, 30);
+
+  p.setPen(color);
+  if (feedback && !feedbackDetail.isEmpty()) {
+    p.setFont(InterFont(feedbackTitle.contains('\n') ? 38 : 50, QFont::Bold));
+    p.drawText(box.adjusted(10, 10, -10, -60), Qt::AlignCenter, feedbackTitle);
+    p.setFont(InterFont(30, QFont::DemiBold));
+    p.drawText(box.adjusted(10, box.height() - 70, -10, -10), Qt::AlignCenter | Qt::TextWordWrap, feedbackDetail);
+  } else {
+    p.setFont(InterFont(50, QFont::Bold));
+    p.drawText(box, Qt::AlignCenter, feedback ? feedbackTitle : tr("MARK\nBUMP"));
+  }
+}
+

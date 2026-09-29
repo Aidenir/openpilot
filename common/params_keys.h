@@ -475,6 +475,10 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"UseKonikServer", {PERSISTENT, BOOL, "0", "0", 2}},
     {"UseSI", {PERSISTENT, BOOL, "1", "1", 3}},
     {"UseVienna", {PERSISTENT, BOOL, "0", "0", 1}},
+    {"UserSpeedBumpButton", {PERSISTENT, BOOL, "0", "0", 1}},
+    // Memory params (Params(memory=True)) shared with mapd: the UI writes the request, mapd the result
+    {"UserSpeedBumpRequest", {CLEAR_ON_MANAGER_START, JSON}},
+    {"UserSpeedBumpResult", {CLEAR_ON_MANAGER_START, JSON}},
     {"VEgoStarting", {PERSISTENT, FLOAT, "0.0", "0.0", 3}},
     {"VEgoStartingStock", {PERSISTENT, FLOAT, "0.0", "0.0", 3}},
     {"VEgoStopping", {PERSISTENT, FLOAT, "0.0", "0.0", 3}},

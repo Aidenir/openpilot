@@ -49,6 +49,13 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      tr("<b>Display the distance to the next mapped speed bump ahead.</b> Requires map data from <b>mapd</b>."),
      ""},
 
+    {"UserSpeedBumpButton",
+     tr("Mark Speed Bump Button"),
+     tr("<b>Show an onroad button that marks a speed bump at the car's position.</b> For bumps missing from the map: "
+        "tap it as you drive over one and <b>mapd</b> saves it to \"user_speed_bumps.json\" and warns for it from then on, in both directions. "
+        "Hold the button to undo the last mark."),
+     ""},
+
     {"SpeedBumpAlertDistance",
      tr("Speed Bump Warning Distance"),
      tr("<b>How far before a speed bump to warn.</b> The map marks the middle of the bump, so this is measured to that point. At 50 km/h, 10 metres is under a second of warning."),
