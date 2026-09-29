@@ -254,15 +254,51 @@ class SubMaster:
 
   # FrogPilot variables
   def extend(self, new_services: List[str]):
-    return SubMaster(
-      self.services + new_services,
-      poll=self.poll,
-      ignore_alive=self.ignore_alive,
-      ignore_avg_freq=self.ignore_average_freq,
-      ignore_valid=self.ignore_valid,
-      addr=self.addr,
-      frequency=None if self.poll is not None else self.update_freq,
-    )
+    """Subscribe to additional services on this SubMaster, in place.
+
+    This used to construct a whole new SubMaster from self.services + new_services.
+    The original's sockets were never closed, so the process ended up holding two
+    msgq reader slots on every service it already had. msgq allows only
+    NUM_READERS (15) per service and evicts *all* readers on overflow, so with
+    four carState subscribers each doubling up, the bus tipped over and dropped
+    messages. Mutating in place - the way PubMaster.extend already does - keeps
+    one slot per service.
+    """
+    for s in new_services:
+      if s in self.sock:
+        continue
+
+      self.services.append(s)
+      self.seen[s] = False
+      self.updated[s] = False
+      self.recv_time[s] = 0.
+      self.recv_frame[s] = 0
+      self.logMonoTime[s] = 0
+
+      # zero-frequency services are on-demand: always alive and presumed valid
+      on_demand = SERVICE_LIST[s].frequency <= 1e-5
+      if not on_demand:
+        self.static_freq_services.add(s)
+      self.alive[s] = on_demand
+      self.freq_ok[s] = on_demand
+      self.valid[s] = on_demand
+
+      # match the original construction: everything but an explicit poll target
+      # is polled, unless this SubMaster polls a single service
+      if self.poll is not None:
+        self.non_polled_services.add(s)
+      poller = self.poller if s not in self.non_polled_services else None
+      self.sock[s] = sub_sock(s, poller=poller, addr=self.addr, conflate=True)
+
+      try:
+        data = new_message(s)
+      except capnp.lib.capnp.KjException:
+        data = new_message(s, 0)  # lists
+
+      self.data[s] = getattr(data.as_reader(), s)
+      self.freq_tracker[s] = FrequencyTracker(SERVICE_LIST[s].frequency, self.update_freq, s == self.poll)
+
+    return self
 
 
 class PubMaster:
