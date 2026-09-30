@@ -1,14 +1,24 @@
 #!/usr/bin/env python3
 import time
 import numpy as np
+from types import SimpleNamespace
 
 from cereal import log
 import cereal.messaging as messaging
 from openpilot.common.realtime import Ratekeeper, DT_MDL
 from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState
 from openpilot.selfdrive.modeld.constants import ModelConstants
-from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
+from opendbc.car.interfaces import ACCEL_MIN
+from openpilot.selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import LEAD_DANGER_FACTOR, get_jerk_factor, get_T_FOLLOW
+from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner, get_max_accel
 from openpilot.selfdrive.controls.radard import _LEAD_ACCEL_TAU
+
+
+class _SubMaster(dict):
+  # LongitudinalPlanner reads sm.alive for frogpilotPlan; every service here is always fresh
+  @property
+  def alive(self):
+    return dict.fromkeys(self, True)
 
 
 class Plant:
@@ -51,13 +61,16 @@ class Plant:
     from opendbc.car.honda.values import CAR
     from opendbc.car.honda.interface import CarInterface
 
-    self.planner = LongitudinalPlanner(CarInterface.get_non_essential_params(CAR.HONDA_CIVIC), init_v=self.speed)
+    CP = CarInterface.get_non_essential_params(CAR.HONDA_CIVIC)
+    self.planner = LongitudinalPlanner(CP, init_v=self.speed)
+    # FrogPilot's defaults for these come straight from CarParams (frogpilot_variables.py)
+    self.frogpilot_toggles = SimpleNamespace(taco_tune=False, longitudinalActuatorDelay=CP.longitudinalActuatorDelay, vEgoStopping=CP.vEgoStopping)
 
   @property
   def current_time(self):
     return float(self.rk.frame) / self.rate
 
-  def step(self, v_lead=0.0, prob_lead=1.0, v_cruise=50., pitch=0.0, prob_throttle=1.0):
+  def step(self, v_lead=0.0, prob_lead=1.0, v_cruise=50., pitch=0.0, prob_throttle=1.0, speed_bump_decel=0.0):
     # ******** publish a fake model going straight and fake calibration ********
     # note that this is worst case for MPC, since model will delay long mpc by one time step
     radar = messaging.new_message('radarState')
@@ -67,6 +80,7 @@ class Plant:
     lp = messaging.new_message('liveParameters')
     car_control = messaging.new_message('carControl')
     model = messaging.new_message('modelV2')
+    fp_plan = messaging.new_message('frogpilotPlan')
     a_lead = (v_lead - self.v_lead_prev)/self.ts
     self.v_lead_prev = v_lead
 
@@ -126,15 +140,27 @@ class Plant:
     car_state.carState.vCruise = float(v_cruise * 3.6)
     car_control.carControl.orientationNED = [0., float(pitch), 0.]
 
+    # What frogpilot_planner publishes with no FrogPilot features active: stock cruise speed, accel limits,
+    # jerks and follow distance for the personality
+    plan = fp_plan.frogpilotPlan
+    plan.vCruise = float(v_cruise)
+    plan.minAcceleration = float(ACCEL_MIN)
+    plan.maxAcceleration = float(get_max_accel(self.speed))
+    plan.accelerationJerk, plan.dangerJerk, plan.speedJerk = (float(jerk) for jerk in get_jerk_factor(personality=self.personality))
+    plan.tFollow = float(get_T_FOLLOW(personality=self.personality))
+    plan.dangerFactor = float(LEAD_DANGER_FACTOR)
+    plan.speedBumpDecel = float(speed_bump_decel)
+
     # ******** get controlsState messages for plotting ***
-    sm = {'radarState': radar.radarState,
+    sm = _SubMaster({'radarState': radar.radarState,
           'carState': car_state.carState,
           'carControl': car_control.carControl,
           'controlsState': control.controlsState,
           'selfdriveState': ss.selfdriveState,
           'liveParameters': lp.liveParameters,
-          'modelV2': model.modelV2}
-    self.planner.update(sm)
+          'modelV2': model.modelV2,
+          'frogpilotPlan': plan})
+    self.planner.update(sm, self.frogpilot_toggles)
     self.acceleration = self.planner.output_a_target
     self.speed = self.speed + self.acceleration * self.ts
     self.should_stop = self.planner.output_should_stop

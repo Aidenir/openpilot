@@ -1,5 +1,12 @@
 from cereal import car
+from types import SimpleNamespace
+
 from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState, long_control_state_trans
+
+
+def toggles(CP):
+  # FrogPilot's defaults for these come straight from CarParams (frogpilot_variables.py)
+  return SimpleNamespace(vEgoStarting=CP.vEgoStarting)
 
 
 
@@ -11,20 +18,20 @@ class TestLongControlStateTransition:
     active = True
     current_state = LongCtrlState.stopping
     next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=True, brake_pressed=False, cruise_standstill=False)
+                             should_stop=True, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
     assert next_state == LongCtrlState.stopping
     next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=True, cruise_standstill=False)
+                             should_stop=False, brake_pressed=True, cruise_standstill=False, frogpilot_toggles=toggles(CP))
     assert next_state == LongCtrlState.stopping
     next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=False, cruise_standstill=True)
+                             should_stop=False, brake_pressed=False, cruise_standstill=True, frogpilot_toggles=toggles(CP))
     assert next_state == LongCtrlState.stopping
     next_state = long_control_state_trans(CP, active, current_state, v_ego=1.0,
-                             should_stop=False, brake_pressed=False, cruise_standstill=False)
+                             should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
     assert next_state == LongCtrlState.pid
     active = False
     next_state = long_control_state_trans(CP, active, current_state, v_ego=1.0,
-                             should_stop=False, brake_pressed=False, cruise_standstill=False)
+                             should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
     assert next_state == LongCtrlState.off
 
 def test_engage():
@@ -32,16 +39,16 @@ def test_engage():
   active = True
   current_state = LongCtrlState.off
   next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=True, brake_pressed=False, cruise_standstill=False)
+                             should_stop=True, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.stopping
   next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=True, cruise_standstill=False)
+                             should_stop=False, brake_pressed=True, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.stopping
   next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=False, cruise_standstill=True)
+                             should_stop=False, brake_pressed=False, cruise_standstill=True, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.stopping
   next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=False, cruise_standstill=False)
+                             should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.pid
 
 def test_starting():
@@ -49,8 +56,8 @@ def test_starting():
   active = True
   current_state = LongCtrlState.starting
   next_state = long_control_state_trans(CP, active, current_state, v_ego=0.1,
-                             should_stop=False, brake_pressed=False, cruise_standstill=False)
+                             should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.starting
   next_state = long_control_state_trans(CP, active, current_state, v_ego=1.0,
-                             should_stop=False, brake_pressed=False, cruise_standstill=False)
+                             should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.pid
