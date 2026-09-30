@@ -60,7 +60,7 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
   if (speed_bump_mark_btn_enabled) {
     int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - speed_bump_mark_btn->width() : UI_BORDER_SIZE * 2;
     speed_bump_mark_btn->move(x, height() * 0.55 - speed_bump_mark_btn->height() / 2);
-    speed_bump_mark_btn->updateState();
+    speed_bump_mark_btn->updateState(frogpilot_toggles.value("speed_bump_detect").toBool());
   }
 
   screen_recorder->move(experimental_btn->x() - UI_BORDER_SIZE - btn_size, experimental_btn->y());

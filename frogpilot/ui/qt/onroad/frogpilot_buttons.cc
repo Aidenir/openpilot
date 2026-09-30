@@ -142,8 +142,25 @@ void SpeedBumpMarkButton::showFeedback(const QString &title, const QString &deta
   update();
 }
 
-void SpeedBumpMarkButton::updateState() {
+void SpeedBumpMarkButton::updateState(bool showSuggestions) {
   qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+  // mapd's verdict on each IMU detection. Polled at ~4 Hz; a toast a quarter of a
+  // second late does not matter, and a tap to confirm has 10 s.
+  if (showSuggestions && pendingId == 0 && ++suggestionPollCounter >= 5) {
+    suggestionPollCounter = 0;
+    QJsonObject result = QJsonDocument::fromJson(QByteArray::fromStdString(params_memory.get("SpeedBumpSuggestResult"))).object();
+    qint64 id = static_cast<qint64>(result.value("id").toDouble());
+    if (lastSuggestionId >= 0 && id != lastSuggestionId && result.value("ok").toBool()) {
+      QString status = result.value("status").toString();
+      if (status == "new" || status == "merged") {
+        showFeedback(tr("BUMP\nNOTED"), tr("tap to confirm"), MARK_COLOR, 6000);
+      } else if (status == "promoted") {
+        showFeedback(tr("BUMP\nLEARNED"), tr("hold to reject"), QColor(51, 224, 255), 6000);
+      }
+    }
+    lastSuggestionId = id;
+  }
 
   if (pendingId != 0) {
     // Only read while a reply is outstanding: at most ~2 s of 20 Hz reads per tap
@@ -156,7 +173,9 @@ void SpeedBumpMarkButton::updateState() {
       if (!ok) {
         showFeedback(tr("NOT SAVED"), message, QColor(255, 80, 80), 4000);
       } else if (pendingAction == "undo") {
-        showFeedback(tr("UNDONE"), tr("%1 saved").arg(total), QColor(200, 200, 200), 2500);
+        showFeedback(message == "Detection rejected" ? tr("REJECTED") : tr("UNDONE"), tr("%1 saved").arg(total), QColor(200, 200, 200), 2500);
+      } else if (message == "Bump confirmed") {
+        showFeedback(tr("CONFIRMED"), tr("hold to undo"), QColor(80, 220, 100), 4000);
       } else {
         showFeedback(message == "Already marked" ? tr("ALREADY\nMARKED") : tr("MARKED"), tr("hold to undo"), QColor(80, 220, 100), 4000);
       }

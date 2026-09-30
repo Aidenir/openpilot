@@ -56,6 +56,26 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "Hold the button to undo the last mark."),
      ""},
 
+    {"SpeedBumpDetect",
+     tr("Learn Unmapped Speed Bumps"),
+     tr("<b>Notice bumps the map is missing from how the car pitches over them.</b> Each one is only a suggestion until it has been "
+        "felt on enough separate drives; then it is treated like a marked bump (warning and slowdown). "
+        "With the \"Mark Speed Bump Button\" on, the button briefly shows \"BUMP NOTED\": tap it to confirm straight away, "
+        "hold it right after \"BUMP LEARNED\" to reject the detection for good."),
+     ""},
+
+    {"SpeedBumpDetectThreshold",
+     tr("Bump Detection Sensitivity"),
+     tr("<b>How sharp a pitch (rad/s) counts as a bump.</b> Lower finds gentler bumps and cushions but also more potholes and "
+        "tram tracks. 0.15 caught every mapped bump that was driven at normal speed on the recorded drives."),
+     ""},
+
+    {"SpeedBumpDetectPromoteDrives",
+     tr("Drives Before a Bump Is Learned"),
+     tr("<b>On how many separate drives a suggested bump must be felt before it becomes active.</b> A drive ends after 10 minutes stopped. "
+        "0 never learns automatically; bumps then only become active when confirmed with the button."),
+     ""},
+
     {"SpeedBumpAlertDistance",
      tr("Speed Bump Warning Distance"),
      tr("<b>How far before a speed bump to warn.</b> The map marks the middle of the bump, so this is measured to that point. At 50 km/h, 10 metres is under a second of warning."),
@@ -157,6 +177,18 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
     } else if (param == "SpeedBumpSlowdownJerk") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.5, 2, tr("x"), std::map<float, QString>(), 0.1);
 
+    } else if (param == "SpeedBumpDetectThreshold") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.08, 0.4, tr(" rad/s"), std::map<float, QString>(), 0.01);
+
+    } else if (param == "SpeedBumpDetectPromoteDrives") {
+      std::map<float, QString> driveLabels{{0, tr("Never")}};
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" drives"), driveLabels, 1);
+
+    } else if (param == "SpeedBumpDetect") {
+      ParamControl *detectToggle = new ParamControl(param, title, desc, icon);
+      QObject::connect(detectToggle, &ToggleControl::toggleFlipped, this, &AidenirsSettingsPanel::updateToggles);
+      aidenirsToggle = detectToggle;
+
     } else if (param == "SpeedBumpSlowdown") {
       ParamControl *slowdownToggle = new ParamControl(param, title, desc, icon);
       QObject::connect(slowdownToggle, &ToggleControl::toggleFlipped, this, &AidenirsSettingsPanel::updateToggles);
@@ -229,7 +261,9 @@ void AidenirsSettingsPanel::updateToggles() {
   for (auto &[key, toggle] : toggles) {
     bool setVisible = parent->tuningLevel >= parent->frogpilotToggleLevels[key].toDouble();
 
-    if (key == "SpeedBumpSlowdown") {
+    if (key == "SpeedBumpDetectThreshold" || key == "SpeedBumpDetectPromoteDrives") {
+      setVisible &= params.getBool("SpeedBumpDetect");
+    } else if (key == "SpeedBumpSlowdown") {
       setVisible &= parent->hasOpenpilotLongitudinal;
     } else if (speedBumpSlowdownKeys.contains(key)) {
       setVisible &= parent->hasOpenpilotLongitudinal && params.getBool("SpeedBumpSlowdown");

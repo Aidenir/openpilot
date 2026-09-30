@@ -73,6 +73,9 @@ def allow_uploads(started: bool, params: Params, CP: car.CarParams, frogpilot_to
 def run_speed_limit_filler(started: bool, params: Params, CP: car.CarParams, frogpilot_toggles: SimpleNamespace) -> bool:
   return frogpilot_toggles.speed_limit_filler
 
+def run_speed_bump_detector(started: bool, params: Params, CP: car.CarParams, frogpilot_toggles: SimpleNamespace) -> bool:
+  return started and frogpilot_toggles.speed_bump_detect
+
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),
 
@@ -135,6 +138,7 @@ procs += [
   PythonProcess("frogpilot_process", "frogpilot.frogpilot_process", always_run),
   NativeProcess("mapd", "frogpilot/navigation", ["./mapd"], always_run),
   PythonProcess("speed_limit_filler", "frogpilot.system.speed_limit_filler", run_speed_limit_filler),
+  PythonProcess("speed_bump_detector", "frogpilot.system.speed_bump_detector", run_speed_bump_detector),
 ]
 
 managed_processes = {p.name: p for p in procs}

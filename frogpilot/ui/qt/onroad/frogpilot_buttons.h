@@ -40,7 +40,8 @@ class SpeedBumpMarkButton : public QPushButton {
 public:
   explicit SpeedBumpMarkButton(QWidget *parent = 0);
 
-  void updateState();
+  // showSuggestions: also flash the IMU detector's findings (SpeedBumpDetect on)
+  void updateState(bool showSuggestions = false);
 
   static constexpr int UNDO_HOLD_MS = 800;
 
@@ -54,6 +55,8 @@ private:
   qint64 feedbackUntil = 0;
   qint64 lastRequestId = 0;
   qint64 pendingId = 0;
+  qint64 lastSuggestionId = -1;  // -1: not read yet, so a stale result is not shown on start
+  int suggestionPollCounter = 0;
   qint64 pendingSince = 0;
   qint64 pressMs = 0;
 
