@@ -175,6 +175,12 @@ TUNING_LEVELS = {
   "DEVELOPER": 3
 }
 
+# Lives here rather than in frogpilot_utilities because common/api.py needs it, and frogpilot_utilities imports
+# sentry -> athena registration -> common/api.py, which made importing frogpilot_utilities first a circular import
+@cache
+def use_konik_server():
+  return KONIK_PATH.is_file()
+
 @cache
 def get_nnff_model_files():
   return [file.stem for file in NNFF_MODELS_PATH.iterdir() if file.is_file()]

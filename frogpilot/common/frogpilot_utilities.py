@@ -24,7 +24,7 @@ from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_build_metadata
 from panda import Panda
 
-from openpilot.frogpilot.common.frogpilot_variables import EARTH_RADIUS, FROGPILOT_API, FROGS_GO_MOO_PATH, KONIK_PATH
+from openpilot.frogpilot.common.frogpilot_variables import EARTH_RADIUS, FROGPILOT_API, FROGS_GO_MOO_PATH, use_konik_server  # noqa: F401
 
 class ThreadManager:
   def __init__(self):
@@ -292,11 +292,6 @@ def update_json_file(path, data):
     os.fsync(file.fileno())
 
   os.replace(temp_path, path)
-
-
-@cache
-def use_konik_server():
-  return KONIK_PATH.is_file()
 
 
 def wait_for_no_driver(params, sm, door_checks=False, time_threshold=60):
