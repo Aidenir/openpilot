@@ -6,7 +6,13 @@ from openpilot.selfdrive.monitoring.helpers import DriverMonitoring, DRIVER_MONI
 from openpilot.system.hardware import HARDWARE
 
 EventName = log.OnroadEvent.EventName
-dm_settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type())
+class _StockDelays:
+  # These sequences are written around upstream's alert timing (green after 3 s, beeping after 5 s, red after 11 s).
+  # This branch's DM delay settings default to 5/15/30 s, so pin the upstream values rather than the defaults
+  def get(self, key):
+    return {"DMGreenAlertDelay": 3, "DMBeepingDelay": 5, "DMCriticalDelay": 11}[key]
+
+dm_settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type(), params=_StockDelays())
 
 TEST_TIMESPAN = 120  # seconds
 DISTRACTED_SECONDS_TO_ORANGE = dm_settings._DISTRACTED_TIME - dm_settings._DISTRACTED_PROMPT_TIME_TILL_TERMINAL + 1
@@ -51,7 +57,7 @@ always_false = [False] * int(TEST_TIMESPAN / DT_DMON)
 
 class TestMonitoring:
   def _run_seq(self, msgs, interaction, engaged, standstill):
-    DM = DriverMonitoring()
+    DM = DriverMonitoring(settings=dm_settings)
     events = []
     for idx in range(len(msgs)):
       DM._update_states(msgs[idx], [0, 0, 0], 0, engaged[idx], standstill[idx])
