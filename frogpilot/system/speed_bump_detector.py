@@ -126,7 +126,10 @@ def main():
 
   gyro_sock = messaging.sub_sock("gyroscope", conflate=False)
   accel_sock = messaging.sub_sock("accelerometer", conflate=False)
-  sm = messaging.SubMaster(["carState"])
+  # Speed comes from livePose, not carState: carState already has all 15 of its msgq reader slots taken onroad, and
+  # a 16th reader makes msgq evict every reader over and over. calibrationd then keeps missing carState, so
+  # liveCalibration and everything downstream go invalid and openpilot refuses to engage (commIssue)
+  sm = messaging.SubMaster(["livePose"])
 
   def settings():
     threshold = min(max(float(params.get("SpeedBumpDetectThreshold")), 0.08), 0.4)
@@ -142,7 +145,7 @@ def main():
   rk = Ratekeeper(20, print_delay_threshold=None)
   while True:
     sm.update(0)
-    detector.set_speed(sm["carState"].vEgo)
+    detector.set_speed(sm["livePose"].velocityDevice.x)  # device x is forward
 
     for msg in messaging.drain_sock(accel_sock):
       a = msg.accelerometer
