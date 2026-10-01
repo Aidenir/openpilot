@@ -427,7 +427,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"SpeedBumpSlowdownResponseTime", {PERSISTENT, FLOAT, "0.3", "0.3", 2}},
     {"SpeedBumpSlowdownSpeed", {PERSISTENT, INT, "20", "20", 1}},
     {"SpeedBumpSlowdownStrict", {PERSISTENT, BOOL, "0", "0", 1}},
-    {"SpeedBumpSlowdownTime", {PERSISTENT, FLOAT, "2.0", "2.0", 1}},
+    {"SpeedBumpSlowdownTime", {PERSISTENT, FLOAT, "3.0", "3.0", 1}},
     // Memory params shared with mapd: the IMU detector writes the request, mapd the result
     {"SpeedBumpSuggestRequest", {CLEAR_ON_MANAGER_START, JSON}},
     {"SpeedBumpSuggestResult", {CLEAR_ON_MANAGER_START, JSON}},

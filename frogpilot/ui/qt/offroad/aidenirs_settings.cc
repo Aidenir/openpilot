@@ -103,7 +103,7 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
     {"SpeedBumpSlowdownTime",
      tr("Speed Bump Braking Point"),
      tr("<b>Where braking starts: this many seconds before the bump, at the speed you're driving.</b> This is the knob that moves the braking point. "
-        "The distance grows with speed: 2 seconds is about 17 metres at 30 km/h and 28 metres at 50 km/h. "
+        "The distance grows with speed: 3 seconds is about 25 metres at 30 km/h and 42 metres at 50 km/h. "
         "Braking is then just firm enough to be at the \"Speed Bump Speed\" as the bump starts, so a later braking point means firmer braking. "
         "If that would need more than the \"Speed Bump Max Braking\", what happens depends on \"Strict Braking Point\". "
         "The speed is held until the car is past the bump (\"Speed Bump Hold Distance\")."),

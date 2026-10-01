@@ -24,19 +24,22 @@ CLAMPED_DISTANCE = 1.0  # m, a report this close right after crossing a bump is 
 PASSED_MEMORY = 50.0    # m, how far past a crossed bump mapd's reports of it are still ignored
 
 MIN_STOP_DISTANCE = 0.5  # m, floor on the remaining distance when working out the deceleration, to keep it finite
-JERK_BP = [5.0, 20.0]   # m/s, ISO 15622 comfort jerk envelope: 5 m/s^3 at low speed down to 2.5 m/s^3 above 20 m/s,
-JERK_V = [5.0, 2.5]     # scaled by SpeedBumpConfig.jerk_scale
+JERK_BP = [5.0, 20.0]   # m/s, how fast the braking may build up and ease off: 1.5 m/s^3 at low speed down to 1.2 m/s^3 above
+JERK_V = [1.5, 1.2]     # 20 m/s, scaled by SpeedBumpConfig.jerk_scale. ISO 15622's 5 m/s^3 / 2.5 m/s^3 envelope is what
+                        # ACC may do, not what is comfortable: on the car it hit the brakes at ~13 m/s^3 and lurched on release
 RELEASE_LAG_EXTRA = 0.2  # s, easing off the brakes takes this much longer than applying them (the brakes' own smoothing);
                         # with the default 0.3s response time this gives the 0.5s tuned in closed-loop sim against the MPC
 TOO_LATE_FACTOR = 1.5   # A bump first confirmed well past its braking point that would need more than this times the max
                         # deceleration is not braked hard for; the cruise speed is still lowered, which brakes gently
 ON_TIME_SLACK = 0.5     # s, a bump confirmed within this long after its braking point still counts as on time
+RELEASE_RAMP = 1.0      # m/s per second the cap is raised by once a bump is over, so the car pulls away rather than lurching
+RELEASE_DONE = 3.0      # m/s, the raised cap is dropped once it is this far above the car's speed and no longer holds it back
 
 @dataclass
 class SpeedBumpConfig:
   """The user's settings, in SI units. Defaults match the params' defaults."""
   v_target: float = 20 / 3.6  # m/s, speed over the bump
-  brake_time: float = 2.0     # s at the current speed before the bump where braking starts
+  brake_time: float = 3.0     # s at the current speed before the bump where braking starts
   max_decel: float = 3.0      # m/s^2, firmest braking allowed
   strict: bool = False        # True: always start at "brake_time", even if that means arriving faster than "v_target"
   response_lag: float = 0.3   # s, how long the car takes to act on a new acceleration request
@@ -55,9 +58,17 @@ def braking_distance(v_from, v_to, decel):
 
 def feasible_start_distance(v_ego, config=DEFAULT_CONFIG):
   """The latest distance to the bump's middle (m) from which "max_decel" still reaches "v_target" by the margin,
-  counting the distance covered before the car responds and while the braking ramps in at the jerk limit."""
-  ramp_in = v_ego * (config.response_lag + (config.max_decel / max_jerk(v_ego, config)) / 2)
-  return config.margin + ramp_in + braking_distance(v_ego, config.v_target, config.max_decel)
+  counting the distance covered before the car responds and while the braking ramps in and back out at the jerk limit."""
+  speed_drop = v_ego - config.v_target
+  if speed_drop <= 0:
+    return config.margin
+  # Braking ramps up and back down at the jerk limit, so a small speed drop never reaches "max_decel": ramping to a
+  # peak and back costs peak^2 / jerk of speed. Each ramp is worth half its duration at constant braking
+  jerk = max_jerk(v_ego, config)
+  peak = min(config.max_decel, math.sqrt(jerk * speed_drop))
+  ramp_in = v_ego * (config.response_lag + peak / jerk / 2)
+  ease_out = config.v_target * peak / jerk / 2
+  return config.margin + ramp_in + braking_distance(v_ego, config.v_target, peak) + ease_out
 
 def brake_start_distance(v_ego, config=DEFAULT_CONFIG):
   """Distance to the bump's middle (m) at which braking starts: "brake_time" seconds out at the current speed. Unless
@@ -67,10 +78,11 @@ def brake_start_distance(v_ego, config=DEFAULT_CONFIG):
     return time_point
   return max(time_point, feasible_start_distance(v_ego, config))
 
-def required_decel(distance, v_ego, config=DEFAULT_CONFIG):
+def required_decel(distance, v_ego, config=DEFAULT_CONFIG, ease_distance=0.0):
   """Constant deceleration (m/s^2, positive) that reaches "v_target" "margin" before the bump's middle,
-  allowing for the "response_lag" seconds travelled before the car acts on it."""
-  remaining = distance - config.margin - v_ego * config.response_lag
+  allowing for the "response_lag" seconds travelled before the car acts on it and "ease_distance" metres
+  covered while the brakes come off at the jerk limit."""
+  remaining = distance - config.margin - v_ego * config.response_lag - ease_distance
   return braking_distance(v_ego, config.v_target, 1.0) / max(remaining, MIN_STOP_DISTANCE)
 
 class SpeedBumpController:
@@ -79,6 +91,10 @@ class SpeedBumpController:
 
   def reset(self):
     self.hold_distance = SpeedBumpConfig.hold_distance
+
+    # The last cap set for a bump, and the cap being raised from it once the bump is over
+    self.last_target = None
+    self.release_cap = None
 
     self.tracked_distance = None
     self.confirmed_samples = 0
@@ -102,6 +118,7 @@ class SpeedBumpController:
     # Per-bump braking state: whether braking has started for it, and whether it was found too late to brake hard for
     self.braking = False
     self.too_late = False
+    self.cap = None
 
   def forget(self):
     if self.tracked_distance is not None and self.tracked_distance < -self.hold_distance:
@@ -177,6 +194,23 @@ class SpeedBumpController:
       self.forget()
 
   def update(self, active, has_bump, distance, v_ego, config, dt=DT_MDL):
+    target, decel = self.update_bump(active, has_bump, distance, v_ego, config, dt)
+    if target is not None:
+      self.last_target = target
+      self.release_cap = None
+    elif active and self.last_target is not None:
+      # The bump is over. Dropping the cap in one step made the MPC jump straight to its full acceleration; raise it instead
+      self.release_cap = (self.release_cap or self.last_target) + RELEASE_RAMP * dt
+      if self.release_cap > v_ego + RELEASE_DONE:
+        self.last_target = self.release_cap = None
+      else:
+        target = self.release_cap
+    else:
+      self.last_target = self.release_cap = None
+    self.target = target
+    return target, decel
+
+  def update_bump(self, active, has_bump, distance, v_ego, config, dt=DT_MDL):
     """Returns (speed cap in m/s or None, requested deceleration in m/s^2 or 0.0).
 
     Nothing happens until the car is "brake_time" seconds (at its current speed) from the bump, or, unless strict,
@@ -213,9 +247,21 @@ class SpeedBumpController:
       # while the car responds to the easing, so it lands on the bump speed rather than dipping below it
       release_lag = config.response_lag + RELEASE_LAG_EXTRA
       landing = math.sqrt(2.0 * jerk * max(0.0, v_ego - v_target - previous_decel * release_lag))
-      desired = min(required_decel(d, v_ego, config), config.max_decel, landing)
-    self.decel = float(np.clip(desired, previous_decel - 2.0 * jerk * dt, previous_decel + jerk * dt))
+      # Easing off from the current deceleration takes "previous_decel / jerk" seconds at about the bump speed, worth half
+      # that at full braking; that distance isn't available for braking, or the car is still easing off as it reaches the bump
+      ease_distance = v_target * previous_decel / jerk / 2
+      desired = min(required_decel(d, v_ego, config, ease_distance), config.max_decel, landing)
+    # Eased off as gently as it is applied: releasing twice as fast made the car lurch as the bump speed was reached
+    self.decel = float(np.clip(desired, previous_decel - jerk * dt, previous_decel + jerk * dt))
     self.decel = max(self.decel, 0.0)
 
-    self.target = v_target
+    if self.too_late:
+      # No deceleration is requested for a bump found too late, so the lowered cruise speed is what slows the car, gently
+      self.target = v_target
+    else:
+      # The requested deceleration does the slowing, so the cruise cap only has to stop the MPC accelerating: it follows the
+      # car's speed down to "v_target". Dropping it straight to "v_target" made the MPC brake hard on its own the moment the
+      # braking started, a step in the command on top of the jerk-limited request
+      self.cap = v_ego if self.cap is None else min(self.cap, v_ego)
+      self.target = max(v_target, self.cap)
     return self.target, self.decel

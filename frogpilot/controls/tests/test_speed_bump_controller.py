@@ -33,9 +33,13 @@ class TestSpeedBumpMath:
     v = 50 * CV.KPH_TO_MS
     start = brake_start_distance(v, CFG)
     assert start > v * BRAKE_TIME
-    # From that point, the required deceleration fits within the max even after the response lag and jerk ramp-in
-    ramp = v * (RESPONSE_LAG + MAX_DECEL / max_jerk(v, CFG) / 2)
-    assert start == pytest.approx(TARGET_MARGIN + ramp + braking_distance(v, V_TARGET, MAX_DECEL))
+    # From that point, the required deceleration fits within the max even after the response lag and the jerk-limited
+    # ramps in and out
+    assert start == pytest.approx(feasible_start_distance(v, CFG))
+    jerk = max_jerk(v, CFG)
+    peak = min(MAX_DECEL, (jerk * (v - V_TARGET)) ** 0.5)
+    ramps = v * (RESPONSE_LAG + peak / jerk / 2) + V_TARGET * peak / jerk / 2
+    assert start == pytest.approx(TARGET_MARGIN + ramps + braking_distance(v, V_TARGET, peak))
     assert required_decel(start, v, CFG) < MAX_DECEL
     # A gentler max moves it further out still
     assert brake_start_distance(v, SpeedBumpConfig(max_decel=2.0)) > start
@@ -76,13 +80,14 @@ class TestSpeedBumpController:
   @pytest.mark.parametrize("kph", [30, 40, 50, 60])
   def test_reaches_target_at_bump_and_holds_past_it(self, kph):
     bump = 200.0
-    log = drive(SpeedBumpController(), [bump], kph * CV.KPH_TO_MS, 30)
+    # Long enough after the bump for the raised cap to climb back past the set speed and be dropped
+    log = drive(SpeedBumpController(), [bump], kph * CV.KPH_TO_MS, 40)
 
     for x, v, cap, _ in log:
       if bump - TARGET_MARGIN <= x <= bump + HOLD_DISTANCE - 1:
         assert v <= V_TARGET + 2 * CV.KPH_TO_MS, (x, v)
-        assert cap == pytest.approx(V_TARGET)
-    assert log[-1][2] is None  # released afterwards
+        assert cap == pytest.approx(V_TARGET, abs=1 * CV.KPH_TO_MS)
+    assert log[-1][2] is None  # released afterwards, once the raised cap no longer holds the car back
 
   def test_braking_starts_at_time_point(self):
     v0 = 30 * CV.KPH_TO_MS
@@ -128,7 +133,7 @@ class TestSpeedBumpController:
     log = drive(SpeedBumpController(), [120.0, 135.0], 40 * CV.KPH_TO_MS, 20)
     for x, _, cap, _ in log:
       if 120.0 <= x <= 135.0:
-        assert cap == pytest.approx(V_TARGET), (x, cap)
+        assert cap == pytest.approx(V_TARGET, abs=1 * CV.KPH_TO_MS), (x, cap)
 
   def test_holds_when_bump_vanishes(self):
     def mapd(x):
@@ -147,7 +152,12 @@ class TestSpeedBumpController:
         return True, 0.0
       return False, 0.0
     log = drive(SpeedBumpController(), [], 40 * CV.KPH_TO_MS, 20, mapd=mapd)
-    assert all(cap is None for x, _, cap, _ in log if x > 100.0 + HOLD_DISTANCE + 0.5)
+    after = [(cap, decel) for x, _, cap, decel in log if x > 100.0 + HOLD_DISTANCE + 0.5]
+    # Past the hold the cap is only ever raised (the car pulling away), never held at the bump speed again
+    assert all(decel == 0.0 for _, decel in after)
+    caps = [cap for cap, _ in after if cap is not None]
+    assert all(b > a for a, b in zip(caps, caps[1:], strict=False))
+    assert not caps or caps[0] > V_TARGET
 
   def test_new_bump_after_passed_one_is_adopted(self):
     log = drive(SpeedBumpController(), [100.0, 200.0], 40 * CV.KPH_TO_MS, 30)
@@ -157,8 +167,10 @@ class TestSpeedBumpController:
     sbc = SpeedBumpController()
     for _ in range(CONFIRM_SAMPLES):
       assert sbc.update(False, True, 15.0, 10.0, CFG) == (None, 0.0)
-    cap, _ = sbc.update(True, True, 14.5, 10.0, CFG)
-    assert cap == pytest.approx(V_TARGET)
+    cap, decel = sbc.update(True, True, 14.5, 10.0, CFG)
+    # Braking starts at once, with the cap at the car's speed rather than a step down to the bump speed
+    assert cap == pytest.approx(10.0)
+    assert decel > 0
 
 
 def first_braking_distance(log, bump):
@@ -201,7 +213,7 @@ class TestSpeedBumpModes:
   def test_hold_distance(self, hold):
     bump = 200.0
     log = drive(SpeedBumpController(), [bump], 40 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(hold_distance=hold))
-    held = [x for x, _, cap, _ in log if x >= bump and cap is not None]
+    held = [x for x, _, cap, _ in log if x >= bump and cap is not None and cap <= V_TARGET + 0.5 * CV.KPH_TO_MS]
     last_held = max(held) if held else bump
     assert last_held == pytest.approx(bump + hold, abs=1.0)
 
@@ -219,3 +231,45 @@ class TestSpeedBumpModes:
     assert feasible_start_distance(v0, SpeedBumpConfig(response_lag=0.8)) == pytest.approx(
       feasible_start_distance(v0, SpeedBumpConfig(response_lag=0.3)) + v0 * 0.5)
     assert required_decel(30.0, v0, SpeedBumpConfig(response_lag=0.8)) > required_decel(30.0, v0, SpeedBumpConfig(response_lag=0.3))
+
+
+SMOOTH_CFG = SpeedBumpConfig(v_target=14 * CV.KPH_TO_MS, brake_time=3.1, strict=True)  # the settings it felt jerky on
+
+
+class TestSmoothness:
+  def drive(self, v0=32 * CV.KPH_TO_MS, config=SMOOTH_CFG, seconds=20):
+    # Ideal car that does whatever deceleration is requested, at least down to the cap
+    sbc = SpeedBumpController()
+    x, v, bump = 0.0, v0, 120.0
+    out = []
+    for _ in range(int(seconds / DT_MDL)):
+      target, decel = sbc.update(True, True, bump - x, v, config)
+      v = max(0.0, v - decel * DT_MDL)
+      x += v * DT_MDL
+      out.append((x, v, target, decel))
+    return out
+
+  def test_cap_follows_speed_instead_of_stepping(self):
+    # Dropping the cap straight to the bump speed made the MPC brake hard on its own at the start of braking
+    rows = self.drive()
+    first = next(i for i, r in enumerate(rows) if r[2] is not None)
+    assert rows[first][2] == pytest.approx(rows[first - 1][1], abs=0.05)
+    for a, b in zip(rows[first:], rows[first + 1:], strict=False):
+      if a[2] is not None and b[2] is not None and b[0] < 120.0:
+        # Never above the speed the car was doing, never below the bump speed, only ever coming down
+        assert 14 * CV.KPH_TO_MS - 1e-6 <= b[2] <= a[1] + 1e-6
+        assert b[2] <= a[2] + 1e-9
+
+  def test_decel_ramps_both_ways_at_the_jerk_limit(self):
+    rows = self.drive()
+    for a, b in zip(rows, rows[1:], strict=False):
+      assert abs(b[3] - a[3]) <= max_jerk(a[1], SpeedBumpConfig(v_target=14 * CV.KPH_TO_MS)) * DT_MDL + 1e-6
+
+  def test_cap_is_raised_gradually_after_the_bump(self):
+    from openpilot.frogpilot.controls.lib.speed_bump_controller import RELEASE_RAMP
+    rows = self.drive()
+    past = [r for r in rows if r[0] > 120.0 + HOLD_DISTANCE + 1.0]
+    raised = [r[2] for r in past if r[2] is not None]
+    assert raised, "the cap should still be there, being raised, just after the hold"
+    for a, b in zip(raised, raised[1:], strict=False):
+      assert b - a == pytest.approx(RELEASE_RAMP * DT_MDL)

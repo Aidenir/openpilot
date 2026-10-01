@@ -35,3 +35,16 @@ def test_harder_lead_braking_wins():
   # A stopped car 20 m ahead needs far more than 0.5 m/s^2; the bump request must not soften that
   _, accels = run(20, speed_bump_decel=0.5, lead_relevancy=True, distance_lead=20.0)
   assert min(accels) < -2.0
+
+
+def test_brakes_come_off_gently_after_a_request():
+  # The MPC's own plan can be far from where the request left the brakes; handing straight back made the car lurch
+  from openpilot.selfdrive.controls.lib.longitudinal_planner import SPEED_BUMP_HANDOVER_JERK
+  plant = Plant(speed=V_CRUISE)
+  for _ in range(40):
+    plant.step(v_cruise=V_CRUISE, speed_bump_decel=2.0)
+  prev = plant.acceleration
+  for _ in range(20):
+    plant.step(v_cruise=V_CRUISE)
+    assert plant.acceleration - prev <= SPEED_BUMP_HANDOVER_JERK * 0.05 + 1e-3
+    prev = plant.acceleration

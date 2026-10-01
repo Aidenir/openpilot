@@ -54,6 +54,11 @@ def limit_accel_in_turns(v_ego, angle_steers, a_target, CP):
   return [a_target[0], min(a_target[1], a_x_allowed)]
 
 
+# FrogPilot variables
+SPEED_BUMP_HANDOVER_JERK = 1.5  # m/s^3, how fast the brakes may come off once a speed bump request ends
+SPEED_BUMP_HANDOVER_TIME = 1.5  # s, how long after the request ends that applies
+
+
 class LongitudinalPlanner:
   def __init__(self, CP, init_v=0.0, init_a=0.0, dt=DT_MDL):
     self.CP = CP
@@ -69,6 +74,9 @@ class LongitudinalPlanner:
     self.prev_accel_clip = [ACCEL_MIN, ACCEL_MAX]
     self.output_a_target = 0.0
     self.output_should_stop = False
+
+    # FrogPilot variables
+    self.speed_bump_release_frames = 0
 
     self.v_desired_trajectory = np.zeros(CONTROL_N)
     self.a_desired_trajectory = np.zeros(CONTROL_N)
@@ -191,6 +199,12 @@ class LongitudinalPlanner:
     speed_bump_decel = float(np.clip(sm['frogpilotPlan'].speedBumpDecel, 0.0, -ACCEL_MIN)) if sm.alive['frogpilotPlan'] else 0.0
     if speed_bump_decel > 0:
       output_a_target = min(output_a_target, -speed_bump_decel)
+      self.speed_bump_release_frames = int(SPEED_BUMP_HANDOVER_TIME / self.dt)
+    elif self.speed_bump_release_frames > 0:
+      # Handing back to the MPC: its own plan can be a step away from where the bump request left the brakes, which the car
+      # felt as a lurch. Ease off towards it instead; braking harder (for a lead) is never held back
+      self.speed_bump_release_frames -= 1
+      output_a_target = min(output_a_target, self.output_a_target + SPEED_BUMP_HANDOVER_JERK * self.dt)
 
     for idx in range(2):
       accel_clip[idx] = np.clip(accel_clip[idx], self.prev_accel_clip[idx] - 0.05, self.prev_accel_clip[idx] + 0.05)
