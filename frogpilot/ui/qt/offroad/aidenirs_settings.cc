@@ -39,6 +39,13 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "This is the delay the other two are measured against, so lowering it pulls them down with it."),
      ""},
 
+    {"DMAwarenessBar",
+     tr("Attention Budget Bar"),
+     tr("<b>Show driver monitoring's attention budget as a bar next to the face icon.</b> It drains while you look away and refills while you watch the road.<br><br>"
+        "The two marks show where the green \"Pay Attention\" alert and the orange beeping start, and the number is the seconds left before the red alert. "
+        "When your face can't be seen it switches to the steering-wheel budget, which always lasts 30 seconds."),
+     ""},
+
     {"MassageReminder",
      tr("Massage Reminder"),
      tr("<b>Enable periodic reminders to turn on the massage function.</b> A gentle prompt will appear every 10 minutes while driving."),

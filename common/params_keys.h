@@ -9,6 +9,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AccessToken", {CLEAR_ON_MANAGER_START | DONT_LOG, STRING}},
     {"AdbEnabled", {PERSISTENT, BOOL}},
     {"AlwaysOnDM", {PERSISTENT, BOOL}},
+    {"DMAwarenessBar", {PERSISTENT, BOOL, "0", "0", 1}},
     {"DMBeepingDelay", {PERSISTENT, INT, "15", "15", 2}},
     {"DMCriticalDelay", {PERSISTENT, INT, "30", "30", 2}},
     {"DMGreenAlertDelay", {PERSISTENT, INT, "5", "5", 2}},

@@ -144,6 +144,25 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   const cereal::ModelDataV2::Reader &modelV2 = sm["modelV2"].getModelV2();
   const cereal::SelfdriveState::Reader &selfdriveState = sm["selfdriveState"].getSelfdriveState();
 
+  // Driver monitoring's attention budget: awarenessStatus runs from 1 (full) to 0 (red alert) and falls by stepChange
+  // every 0.05 s step (DT_DMON) while distracted, so the time left is awareness / stepChange steps. The thresholds
+  // mirror selfdrive/monitoring/helpers.py: the user's DM delays with a face in view, fixed 15 s / 6 s of a 30 s
+  // budget when it falls back to steering-wheel touches
+  const cereal::DriverMonitoringState::Reader &driverMonitoringState = sm["driverMonitoringState"].getDriverMonitoringState();
+  dmAwarenessValid = sm.alive("driverMonitoringState") && sm.rcv_frame("driverMonitoringState") > 0;
+  dmAwareness = driverMonitoringState.getAwarenessStatus();
+  dmAwarenessActiveMode = driverMonitoringState.getIsActiveMode();
+  if (dmAwarenessActiveMode) {
+    float critical = frogpilot_toggles.value("dm_critical_delay").toDouble();
+    dmAwarenessPre = (critical - frogpilot_toggles.value("dm_green_delay").toDouble()) / critical;
+    dmAwarenessPrompt = (critical - frogpilot_toggles.value("dm_beeping_delay").toDouble()) / critical;
+  } else {
+    dmAwarenessPre = 15.0f / 30.0f;
+    dmAwarenessPrompt = 6.0f / 30.0f;
+  }
+  float dmStepChange = driverMonitoringState.getStepChange();
+  dmAwarenessSecondsLeft = dmStepChange > 0 ? std::max(dmAwareness, 0.0f) / dmStepChange * 0.05f : 0.0f;
+
   if (scene.is_metric || frogpilot_toggles.value("use_si_metrics").toBool()) {
     leadDistanceUnit = tr(" meters");
     leadSpeedUnit = frogpilot_toggles.value("use_si_metrics").toBool() ? tr(" m/s") : tr(" km/h");
@@ -352,6 +371,10 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
 
   if (frogpilot_toggles.value("speed_bump_tile_count_ui").toBool()) {
     paintSpeedBumpAreaCount(p);
+  }
+
+  if (!hideBottomIcons && frogpilot_toggles.value("dm_awareness_bar").toBool()) {
+    paintDriverAwareness(p);
   }
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
@@ -968,6 +991,63 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedBumpWarning(QPainter &p) {
   p.setFont(font);
   p.setPen(QPen(QColor(255, 200, 50)));
   p.drawText(rect, Qt::AlignCenter, speedBumpWarningStr);
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
+  if (!dmAwarenessValid || dmIconPosition == QPoint(0, 0)) {
+    return;
+  }
+
+  p.save();
+
+  // A vertical bar beside the driver monitoring face, on the side facing the middle of the screen
+  const int barWidth = 30;
+  const int barHeight = btn_size + 40;
+  int barX = rightHandDM ? dmIconPosition.x() - btn_size / 2 - UI_BORDER_SIZE - barWidth : dmIconPosition.x() + btn_size / 2 + UI_BORDER_SIZE;
+  int barY = dmIconPosition.y() + btn_size / 2 - barHeight;
+  QRect barRect(barX, barY, barWidth, barHeight);
+
+  float level = std::clamp(dmAwareness, 0.0f, 1.0f);
+  QColor fillColor;
+  if (dmAwareness <= 0.0f) {
+    fillColor = QColor(201, 34, 49);
+  } else if (dmAwareness <= dmAwarenessPrompt) {
+    fillColor = QColor(254, 140, 52);
+  } else if (dmAwareness <= dmAwarenessPre) {
+    fillColor = QColor(255, 220, 60);
+  } else {
+    fillColor = QColor(23, 134, 68);
+  }
+
+  p.setPen(Qt::NoPen);
+  p.setBrush(QColor(0, 0, 0, 150));
+  p.drawRoundedRect(barRect.adjusted(-4, -4, 4, 4), 10, 10);
+
+  int fillHeight = std::lround(barHeight * level);
+  p.setBrush(fillColor);
+  p.drawRoundedRect(QRect(barX, barY + barHeight - fillHeight, barWidth, fillHeight), 6, 6);
+
+  // Where the green "Pay Attention" alert and the orange beeping start
+  p.setPen(QPen(QColor(255, 255, 255, 220), 3));
+  for (float mark : {dmAwarenessPre, dmAwarenessPrompt}) {
+    int markY = barY + barHeight - std::lround(barHeight * mark);
+    p.drawLine(barX - 6, markY, barX + barWidth + 6, markY);
+  }
+
+  // Seconds left before the red alert, and which budget is in use
+  QString secondsStr = dmAwareness >= 1.0f ? QString() : QString::number(std::ceil(dmAwarenessSecondsLeft), 'f', 0) + "s";
+  QString modeStr = dmAwarenessActiveMode ? QString() : tr("wheel");
+
+  p.setFont(InterFont(34, QFont::Bold));
+  p.setPen(Qt::white);
+  QRect labelRect(barX - 60, barY - 50, barWidth + 120, 44);
+  p.drawText(labelRect, Qt::AlignCenter, secondsStr);
+  if (!modeStr.isEmpty()) {
+    p.setFont(InterFont(26, QFont::DemiBold));
+    p.drawText(labelRect.translated(0, -36), Qt::AlignCenter, modeStr);
+  }
 
   p.restore();
 }

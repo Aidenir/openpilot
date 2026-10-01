@@ -544,6 +544,13 @@ class FrogPilotVariables:
 
     toggle.massage_reminder = self.get_value("MassageReminder")
 
+    # The awareness bar marks where the green and orange alerts start, so it needs the same clamped delays as
+    # DRIVER_MONITOR_SETTINGS in selfdrive/monitoring/helpers.py
+    toggle.dm_awareness_bar = self.get_value("DMAwarenessBar")
+    toggle.dm_critical_delay = int(min(max(self.params.get("DMCriticalDelay") or 30, 5), 120))
+    toggle.dm_green_delay = int(min(max(self.params.get("DMGreenAlertDelay") or 5, 1), toggle.dm_critical_delay - 2))
+    toggle.dm_beeping_delay = int(min(max(self.params.get("DMBeepingDelay") or 15, toggle.dm_green_delay + 1), toggle.dm_critical_delay - 1))
+
     toggle.speed_bump_ui = self.get_value("SpeedBumpUI")
     toggle.user_speed_bump_button = self.get_value("UserSpeedBumpButton")
     toggle.speed_bump_detect = self.get_value("SpeedBumpDetect")

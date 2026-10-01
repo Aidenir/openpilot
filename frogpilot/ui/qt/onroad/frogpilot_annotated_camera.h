@@ -63,6 +63,7 @@ private:
   void paintCompass(QPainter &p);
   void paintCurveSpeedControl(QPainter &p);
   void paintCurveSpeedControlTraining(QPainter &p);
+  void paintDriverAwareness(QPainter &p);
   void paintLateralPaused(QPainter &p);
   void paintLongitudinalPaused(QPainter &p);
   void paintPedalIcons(QPainter &p);
@@ -97,6 +98,14 @@ private:
   bool weatherDaytime;
 
   int animationFrameIndex;
+  bool dmAwarenessActiveMode = true;
+  bool dmAwarenessValid = false;
+
+  float dmAwareness = 1.0f;
+  float dmAwarenessPre = 0.0f;
+  float dmAwarenessPrompt = 0.0f;
+  float dmAwarenessSecondsLeft = 0.0f;
+
   int bottomBannerOffset = 5;
   int desiredFollowDistance;
   int frogHopCount;
