@@ -30,6 +30,10 @@ class FrogPilotEvents:
 
     self.speed_bump_warned = False
 
+    # Steering wheel speed bump marks: the last result seen, and a frame counter so mapd's reply is only polled at ~4 Hz
+    self.speed_bump_result_id = None
+    self.speed_bump_result_frame = 0
+
     self.max_acceleration = 0
     self.random_event_timer = 0
     self.tracked_lead_distance = 0
@@ -37,6 +41,23 @@ class FrogPilotEvents:
     self.played_events = set()
 
     self.error_log = error_log
+
+  def speed_bump_mark_feedback(self):
+    self.speed_bump_result_frame = (self.speed_bump_result_frame + 1) % 5
+    if self.speed_bump_result_frame != 0:
+      return
+    result = self.frogpilot_planner.params_memory.get("UserSpeedBumpResult") or {}
+    result_id = result.get("id")
+    if self.speed_bump_result_id is not None and result_id is not None and result_id != self.speed_bump_result_id:
+      request = self.frogpilot_planner.params_memory.get("UserSpeedBumpRequest") or {}
+      if request.get("id") == result_id and request.get("source") == "wheel":
+        if not result.get("ok"):
+          self.events.add(FrogPilotEventName.speedBumpMarkFailed)
+        elif result.get("action") == "undo":
+          self.events.add(FrogPilotEventName.speedBumpMarkUndone)
+        else:
+          self.events.add(FrogPilotEventName.speedBumpMarked)
+    self.speed_bump_result_id = result_id if result_id is not None else self.speed_bump_result_id or 0
 
   def update(self, long_control_active, v_cruise, sm, frogpilot_toggles):
     current_alert = sm["selfdriveState"].alertType
@@ -61,6 +82,8 @@ class FrogPilotEvents:
       elif has_bump and bump_distance <= warn_at and not self.speed_bump_warned:
         self.events.add(FrogPilotEventName.speedBumpAhead)
         self.speed_bump_warned = True
+
+    self.speed_bump_mark_feedback()
 
     acceleration = sm["carControl"].actuators.accel
 

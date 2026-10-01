@@ -125,7 +125,8 @@ void SpeedBumpMarkButton::sendRequest(const QString &action, qint64 tapMs) {
   qint64 id = std::max(tapMs, lastRequestId + 1);
   lastRequestId = id;
 
-  QString request = QString("{\"id\":%1,\"action\":\"%2\",\"tapMs\":%3}").arg(id).arg(action).arg(tapMs);
+  QString request = QString("{\"id\":%1,\"action\":\"%2\",\"tapMs\":%3,\"source\":\"screen\",\"oneWay\":%4}")
+                      .arg(id).arg(action).arg(tapMs).arg(params.getBool("SpeedBumpMarkOneWay") ? "true" : "false");
   params_memory.put("UserSpeedBumpRequest", request.toStdString());
 
   pendingId = id;

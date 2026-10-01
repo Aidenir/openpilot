@@ -63,6 +63,12 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "Hold the button to undo the last mark."),
      ""},
 
+    {"SpeedBumpMarkOneWay",
+     tr("Marked Bumps Only In Marked Direction"),
+     tr("<b>Make a bump you mark only count when driving the same way along the road as when you marked it.</b> For bumps on one side of "
+        "the road, like a cushion in one lane. Off by default: a marked bump counts in both directions. The direction is recorded either way."),
+     ""},
+
     {"SpeedBumpDetect",
      tr("Learn Unmapped Speed Bumps"),
      tr("<b>Notice bumps the map is missing from how the car pitches over them.</b> Each one is only a suggestion until it has been "
@@ -139,6 +145,13 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "(2 metres) means being slow as the bump starts. Raise it to be slow earlier."),
      ""},
 
+    {"SpeedBumpSlowdownCEMDelay",
+     tr("Speed Bump Experimental Mode Hold-Off"),
+     tr("<b>Keep \"Conditional Experimental Mode\" from switching on because of the low speed while slowing for a bump, and for this many "
+        "seconds after.</b> Slowing for a bump drops the car below the Conditional Experimental Mode speed, and Experimental Mode then crept "
+        "over the bump and pulled away slowly. Only the speed condition is held off: leads, curves and stop lights still switch it on."),
+     ""},
+
     {"SpeedBumpSlowdownTableLength",
      tr("Speed Bump Table Length"),
      tr("<b>How long a raised table (a long flat-topped bump, often a raised crossing) is, when the map doesn't say.</b> "
@@ -186,6 +199,9 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     } else if (param == "SpeedBumpSlowdownMargin") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" meters"), std::map<float, QString>(), 0.5);
+
+    } else if (param == "SpeedBumpSlowdownCEMDelay") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" seconds"), std::map<float, QString>(), 0.5);
 
     } else if (param == "SpeedBumpSlowdownTableLength") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 40, tr(" meters"), std::map<float, QString>(), 1);

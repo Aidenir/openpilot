@@ -1200,6 +1200,31 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
   },
 
+  # Feedback for a speed bump marked (or undone) with a steering wheel button, where the onroad button's own feedback may not be on screen
+  FrogPilotEventName.speedBumpMarked: {
+    ET.PERMANENT: Alert(
+      "Speed bump marked",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
+  },
+
+  FrogPilotEventName.speedBumpMarkUndone: {
+    ET.PERMANENT: Alert(
+      "Speed bump mark undone",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
+  },
+
+  FrogPilotEventName.speedBumpMarkFailed: {
+    ET.PERMANENT: Alert(
+      "Speed bump not saved",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.warningSoft, 3.),
+  },
+
   FrogPilotEventName.massageReminder: {
     ET.PERMANENT: Alert(
       "Glöm inte massagen",

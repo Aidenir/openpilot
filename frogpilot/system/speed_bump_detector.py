@@ -19,6 +19,8 @@ in the unit tests and in tools/detect_bumps_from_rlogs.py over old drives.
 from collections import deque
 from dataclasses import dataclass
 
+import numpy as np
+
 # The high-pass subtracts a centred moving average over this many samples
 # (1 s at the sensors' ~104 Hz). Centring needs half a window of look-ahead, so
 # the filtered signal lags the raw one by HP_WINDOW // 2 samples (~0.5 s). The
@@ -114,6 +116,33 @@ class SpeedBumpDetector:
     return BumpEvent(t=tp, pitch=peak, az_pp=az_pp, v_ego=v)
 
 
+REFINE_WINDOW = 10.0  # s either side of a mark's tap to look for the bump in
+REFINE_THRESHOLD = 0.09  # rad/s; lower than the detector's own, since the driver has already said there is a bump here
+REFINE_BUFFER = 30.0  # s of raw pitch rate kept for that
+
+
+def find_bump_near(samples, tap_t, window=REFINE_WINDOW, threshold=REFINE_THRESHOLD, min_speed=MIN_SPEED):
+  """The time of the strongest jolt within "window" seconds of "tap_t", or None.
+
+  "samples" are (t, pitch_rate, v_ego) in time order. The pitch rate is high-passed the same way as for detection (a
+  centred moving average subtracted), and only samples while moving count. The bump is the strongest peak, not the one
+  nearest the tap: a driver reaches for the button before or after a bump, rarely on it."""
+  if len(samples) < HP_WINDOW:
+    return None
+  t = np.array([s[0] for s in samples])
+  pitch = np.array([s[1] for s in samples])
+  v = np.array([s[2] for s in samples])
+  hp = np.abs(pitch - np.convolve(pitch, np.ones(HP_WINDOW) / HP_WINDOW, mode="same"))
+  # The moving average is only valid away from the buffer's ends
+  valid = np.zeros(len(t), dtype=bool)
+  valid[HP_WINDOW // 2:len(t) - HP_WINDOW // 2] = True
+  candidates = valid & (np.abs(t - tap_t) <= window) & (v > min_speed) & (hp >= threshold)
+  if not candidates.any():
+    return None
+  i = int(np.argmax(np.where(candidates, hp, -1.0)))
+  return float(t[i]), float(hp[i])
+
+
 def main():
   import time
 
@@ -136,9 +165,17 @@ def main():
     return threshold, int(params.get("SpeedBumpDetectPromoteDrives"))
 
   threshold, promote_drives = settings()
+  detect = params.get_bool("SpeedBumpDetect")
   detector = SpeedBumpDetector(threshold=threshold)
   last_settings_check = time.monotonic()
   last_id = 0
+
+  # Marks to refine: (mark id, tap time on the monotonic clock), searched once REFINE_WINDOW has passed after the tap
+  recent = deque()  # (t, pitch rate, v_ego) for the last REFINE_BUFFER seconds
+  pending_marks = deque()
+  last_mark_id = None
+  last_mark_check = 0.0
+  refine_id = 0
 
   # 20 Hz is plenty: drain_sock hands over every sample queued since the last
   # loop, so the detector still sees all ~104 Hz of both sensors.
@@ -156,12 +193,14 @@ def main():
       g = msg.gyroscope
       if g.which() != "gyroUncalibrated":
         continue
-      event = detector.add_gyro(g.timestamp * 1e-9, g.gyroUncalibrated.v[1])  # device y is pitch
-      if event is None:
+      t_sample = g.timestamp * 1e-9
+      recent.append((t_sample, g.gyroUncalibrated.v[1], detector.v_ego))
+      event = detector.add_gyro(t_sample, g.gyroUncalibrated.v[1])  # device y is pitch
+      if event is None or not detect:
         continue
       # The sample clock is time.monotonic (sensord converts to it), so the
       # event's age turns straight into a wall-clock time mapd can back-project from.
-      event_ms = int(time.time() * 1000 - (time.monotonic() - event.t) * 1000)
+      event_ms = int(time.time() * 1000 - (time.monotonic() - event.t) * 1000)  # noqa: TID251
       last_id = max(event_ms, last_id + 1)
       params_memory.put("SpeedBumpSuggestRequest", {
         "id": last_id,
@@ -172,10 +211,40 @@ def main():
         "promoteDrives": promote_drives,
       })
 
-    if time.monotonic() - last_settings_check > 5:
-      last_settings_check = time.monotonic()
+    now = time.monotonic()
+    while recent and recent[0][0] < now - REFINE_BUFFER:
+      recent.popleft()
+
+    # A new mark (onroad button or steering wheel): remember it and refine it from the IMU once both sides of the tap are in
+    if now - last_mark_check > 0.25:
+      last_mark_check = now
+      request = params_memory.get("UserSpeedBumpRequest") or {}
+      mark_id = request.get("id")
+      if mark_id is not None and mark_id != last_mark_id:
+        if last_mark_id is not None and request.get("action") == "mark":
+          tap_mono = now - (time.time() * 1000 - request.get("tapMs", time.time() * 1000)) / 1000  # noqa: TID251
+          pending_marks.append((mark_id, tap_mono))
+        last_mark_id = mark_id
+
+    while pending_marks and now >= pending_marks[0][1] + REFINE_WINDOW + 0.5:
+      mark_id, tap_mono = pending_marks.popleft()
+      found = find_bump_near(list(recent), tap_mono)
+      if found is None:
+        continue  # no clear jolt either side of the tap: the mark stays where it was tapped
+      event_t, pitch = found
+      refine_id = max(int(time.time() * 1000), refine_id + 1)  # noqa: TID251
+      params_memory.put("SpeedBumpRefineRequest", {
+        "id": refine_id,
+        "markId": mark_id,
+        "eventMs": int(time.time() * 1000 - (now - event_t) * 1000),  # noqa: TID251
+        "pitch": round(pitch, 4),
+      })
+
+    if now - last_settings_check > 5:
+      last_settings_check = now
       threshold, promote_drives = settings()
       detector.threshold = threshold
+      detect = params.get_bool("SpeedBumpDetect")
 
     rk.keep_time()
 

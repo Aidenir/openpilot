@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from openpilot.frogpilot.system.speed_bump_detector import HP_WINDOW, PEAK_WINDOW, REFRACTORY, SpeedBumpDetector
+from openpilot.frogpilot.system.speed_bump_detector import HP_WINDOW, PEAK_WINDOW, REFINE_WINDOW, REFRACTORY, SpeedBumpDetector, find_bump_near
 
 RATE = 104.0
 DATA = Path(__file__).parent / "data" / "speed_bump_imu.npz"
@@ -112,3 +112,46 @@ def test_recorded_background_has_no_detection():
   events, d = _replay("quiet", 0.15)
   assert events == []
   assert d["quiet_cs"][:, 1].min() > 4
+
+
+# --- Refining a driver's mark from the IMU ---
+
+
+
+def samples(signal, start=100.0, duration=40.0, speed=8.0):
+  return [(start + i / RATE, signal(start + i / RATE), speed) for i in range(int(duration * RATE))]
+
+
+@pytest.mark.parametrize("offset", [-8.0, -3.0, 0.0, 4.0, 9.0])
+def test_refine_finds_the_bump_either_side_of_the_tap(offset):
+  bump_t = 120.0
+  s = samples(lambda t: bump_pulse(t, bump_t, 0.2))
+  found = find_bump_near(s, tap_t=bump_t - offset)
+  assert found is not None
+  assert abs(found[0] - bump_t) < 0.15
+
+
+def test_refine_prefers_the_strongest_jolt_not_the_nearest():
+  s = samples(lambda t: bump_pulse(t, 115.0, 0.12) + bump_pulse(t, 124.0, 0.3))
+  found = find_bump_near(s, tap_t=116.0)
+  assert abs(found[0] - 124.0) < 0.15
+
+
+def test_refine_ignores_jolts_outside_the_window_and_while_stopped():
+  s = samples(lambda t: bump_pulse(t, 120.0, 0.3))
+  assert find_bump_near(s, tap_t=120.0 + REFINE_WINDOW + 2.0) is None
+  assert find_bump_near(samples(lambda t: bump_pulse(t, 120.0, 0.3), speed=0.5), tap_t=120.0) is None
+
+
+def test_refine_finds_nothing_on_a_quiet_road():
+  assert find_bump_near(samples(lambda t: 0.01 * math.sin(t * 7)), tap_t=120.0) is None
+
+
+def test_refine_on_recorded_bump_tapped_late():
+  # The recorded Södra Förstadsgatan hump, with the button pressed 6 s after crossing it
+  d = np.load(DATA)
+  gyr, cs = d["bump_gyr"], d["bump_cs"]
+  s = [(float(t), float(y), float(np.interp(t, cs[:, 0], cs[:, 1]))) for t, y in gyr]
+  bump_t = float(d["bump_event_t"])
+  found = find_bump_near(s, tap_t=bump_t + 6.0)
+  assert found is not None and abs(found[0] - bump_t) < 0.5

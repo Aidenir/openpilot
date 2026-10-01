@@ -145,6 +145,9 @@ struct FrogPilotOnroadEvent @0xa5cd762cd951a455 {
     youveGotMail @28;
     massageReminder @29;
     speedBumpAhead @30;
+    speedBumpMarked @31;
+    speedBumpMarkUndone @32;
+    speedBumpMarkFailed @33;
   }
 }
 

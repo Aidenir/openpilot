@@ -13,7 +13,9 @@ FrogPilotWheelPanel::FrogPilotWheelPanel(FrogPilotSettingsWindow *parent, bool f
   for (const auto &[param, title, desc, icon] : wheelToggles) {
     QMap<int, QString> functionsMap {
       {0, tr("No Action")},
-      {3, tr("Pause Steering")}
+      {3, tr("Pause Steering")},
+      {7, tr("Mark Speed Bump")},
+      {8, tr("Undo Last Speed Bump Mark")}
     };
 
     QMap<int, QString> longitudinalFunctionsMap {

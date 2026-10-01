@@ -134,6 +134,8 @@ class CarState(CarStateBase):
     self.gra_stock_values = pt_cp.vl["GRA_ACC_01"]
 
     ret.buttonEvents = self.create_button_events(pt_cp, self.CCP.BUTTONS)
+    # FrogPilot's distance button presses (short/long/very long) come from "distance_button", which VW never set
+    self.distance_button = int(pt_cp.vl["GRA_ACC_01"]["GRA_Verstellung_Zeitluecke"] != 0)
 
     ret.lowSpeedAlert = self.update_low_speed_alert(ret.vEgo)
 
@@ -226,6 +228,7 @@ class CarState(CarStateBase):
                                                                             pt_cp.vl["Gate_Komf_1"]["GK1_Blinker_re"])
     ret.buttonEvents = self.create_button_events(pt_cp, self.CCP.BUTTONS)
     self.gra_stock_values = pt_cp.vl["GRA_Neu"]
+    self.distance_button = int(pt_cp.vl["GRA_Neu"]["GRA_Zeitluecke"] != 0)
 
     # Additional safety checks performed in CarInterface.
     ret.espDisabled = bool(pt_cp.vl["Bremse_1"]["BR1_ESPASR_passive"])
@@ -287,6 +290,7 @@ class CarState(CarStateBase):
     self.gra_stock_values = pt_cp.vl["LS_01"]
 
     ret.buttonEvents = self.create_button_events(pt_cp, self.CCP.BUTTONS)
+    self.distance_button = int(pt_cp.vl["LS_01"]["LS_Verstellung_Zeitluecke"] != 0)
 
     ret.cruiseState.standstill = self.CP.pcmCruise and self.esp_hold_confirmation
     ret.standstill = ret.vEgoRaw == 0

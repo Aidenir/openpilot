@@ -306,14 +306,14 @@ class TestBumpLength:
   def test_table_is_held_all_the_way_across(self):
     log = self.drive_table(20.0)
     end = 200.0 + 10.0
-    for x, v, cap, _ in log:
+    for x, _v, cap, _ in log:
       if 200.0 - 10.0 <= x <= end + HOLD_DISTANCE - 1:
         assert cap is not None and cap <= V_TARGET + 1 * CV.KPH_TO_MS, (x, cap)
 
   def test_length_stays_with_its_bump_when_mapd_moves_on(self):
     # Crossing the middle, mapd reports a short bump further on; the table must still be held to its end
     log = self.drive_table(20.0, next_bump=260.0)
-    for x, v, cap, _ in log:
+    for x, _v, cap, _ in log:
       if 200.0 <= x <= 210.0 + HOLD_DISTANCE - 1:
         assert cap is not None and cap <= V_TARGET + 1 * CV.KPH_TO_MS, (x, cap)
 

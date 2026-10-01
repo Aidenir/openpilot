@@ -23,7 +23,7 @@ private:
 
   QSet<QString> driverMonitoringDelayKeys {"DMBeepingDelay", "DMCriticalDelay", "DMGreenAlertDelay"};
   QSet<QString> speedBumpSlowdownKeys {"SpeedBumpSlowdownHold", "SpeedBumpSlowdownJerk", "SpeedBumpSlowdownMargin", "SpeedBumpSlowdownMaxDecel",
-                                       "SpeedBumpSlowdownResponseTime", "SpeedBumpSlowdownSpeed", "SpeedBumpSlowdownStrict", "SpeedBumpSlowdownTableLength",
+                                       "SpeedBumpSlowdownCEMDelay", "SpeedBumpSlowdownResponseTime", "SpeedBumpSlowdownSpeed", "SpeedBumpSlowdownStrict", "SpeedBumpSlowdownTableLength",
                                        "SpeedBumpSlowdownTime"};
 
   FrogPilotSettingsWindow *parent;

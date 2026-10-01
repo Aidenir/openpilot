@@ -74,7 +74,8 @@ def run_speed_limit_filler(started: bool, params: Params, CP: car.CarParams, fro
   return frogpilot_toggles.speed_limit_filler
 
 def run_speed_bump_detector(started: bool, params: Params, CP: car.CarParams, frogpilot_toggles: SimpleNamespace) -> bool:
-  return started and frogpilot_toggles.speed_bump_detect
+  # Also when marking bumps, so a mark can be moved onto the jolt the IMU felt nearby
+  return started and (frogpilot_toggles.speed_bump_detect or frogpilot_toggles.speed_bump_marking)
 
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),

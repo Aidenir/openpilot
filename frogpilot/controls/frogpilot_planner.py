@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import time
 
 import cereal.messaging as messaging
 
@@ -48,6 +49,7 @@ class FrogPilotPlanner:
     self.road_curvature = 0
     self.time_to_curve = 0
     self.speed_bump_decel = 0
+    self.speed_bump_cem_block_until = 0.0
     self.v_cruise = 0
 
     self.gps_position = None
@@ -122,6 +124,11 @@ class FrogPilotPlanner:
       self.frogpilot_traffic.reset()
 
     self.v_cruise = self.frogpilot_vcruise.update(long_control_active, now, time_validated, v_cruise, v_ego, sm, frogpilot_toggles)
+
+    # Slowing for a speed bump takes the car under "Conditional Experimental Mode"'s speed limit, and the switch to Experimental
+    # Mode made it creep over the bump and pull away slowly. Hold that condition off while slowing for a bump and for a moment after
+    if self.frogpilot_vcruise.sbc.target is not None:
+      self.speed_bump_cem_block_until = time.monotonic() + frogpilot_toggles.speed_bump_slowdown_cem_delay
 
     # Deceleration requested by the speed bump slowdown, applied by the longitudinal planner (see "speedBumpDecel" there). It is
     # jerk-limited and never more than the "SpeedBumpSlowdownMaxDecel" setting (at most 3.5 m/s^2, the stock ACCEL_MIN). Nothing

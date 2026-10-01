@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.modeld.constants import ModelConstants
@@ -62,7 +64,10 @@ class ConditionalExperimentalMode:
         self.status_value = CEStatus["SIGNAL"]
         return True
 
-    if 1 <= v_ego < (frogpilot_toggles.conditional_limit_lead if self.frogpilot_planner.frogpilot_following.following_lead else frogpilot_toggles.conditional_limit):
+    # Not while slowing for a speed bump (see "speed_bump_cem_block_until" in frogpilot_planner); lead, curve and stop light conditions still apply
+    speed_bump_slowdown = time.monotonic() < self.frogpilot_planner.speed_bump_cem_block_until
+    speed_limit = frogpilot_toggles.conditional_limit_lead if self.frogpilot_planner.frogpilot_following.following_lead else frogpilot_toggles.conditional_limit
+    if 1 <= v_ego < speed_limit and not speed_bump_slowdown:
       self.status_value = CEStatus["SPEED"]
       return True
 

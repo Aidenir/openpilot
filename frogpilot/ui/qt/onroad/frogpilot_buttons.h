@@ -60,6 +60,7 @@ private:
   qint64 pendingSince = 0;
   qint64 pressMs = 0;
 
+  Params params;
   Params params_memory{"", true};
 
   QColor feedbackColor;

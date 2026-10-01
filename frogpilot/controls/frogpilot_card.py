@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+
 from opendbc.safety import ALTERNATIVE_EXPERIENCE
 from openpilot.common.params import Params
 from openpilot.selfdrive.car.cruise import CRUISE_LONG_PRESS, ButtonType
@@ -25,6 +27,7 @@ class FrogPilotCard:
     self.traffic_mode_enabled = False
 
     self.gap_counter = 0
+    self.speed_bump_request_id = 0
 
     self.always_on_lateral_set = bool(FPCP.alternativeExperience & ALTERNATIVE_EXPERIENCE.ALWAYS_ON_LATERAL)
     self.frogs_go_moo = is_FrogsGoMoo()
@@ -45,6 +48,23 @@ class FrogPilotCard:
       self.pause_longitudinal = not self.pause_longitudinal
     elif getattr(frogpilot_toggles, f"traffic_mode_via_{key}"):
       self.traffic_mode_enabled = not self.traffic_mode_enabled
+    elif getattr(frogpilot_toggles, f"mark_speed_bump_via_{key}"):
+      self.request_speed_bump("mark", frogpilot_toggles)
+    elif getattr(frogpilot_toggles, f"undo_speed_bump_via_{key}"):
+      self.request_speed_bump("undo", frogpilot_toggles)
+
+  def request_speed_bump(self, action, frogpilot_toggles):
+    # The same request the onroad "MARK BUMP" button sends; mapd records it where the car was at "tapMs", and the speed
+    # bump detector then looks for the jolt within 10 s either side and moves the mark onto it
+    tap_ms = int(time.time() * 1000)  # noqa: TID251  mapd works in wall-clock milliseconds
+    self.speed_bump_request_id = max(tap_ms, self.speed_bump_request_id + 1)
+    self.params_memory.put("UserSpeedBumpRequest", {
+      "id": self.speed_bump_request_id,
+      "action": action,
+      "tapMs": tap_ms,
+      "source": "wheel",
+      "oneWay": bool(frogpilot_toggles.speed_bump_mark_one_way),
+    })
 
   def handle_experimental_mode(self, sm, frogpilot_toggles):
     if frogpilot_toggles.conditional_experimental_mode:

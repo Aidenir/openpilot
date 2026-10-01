@@ -81,7 +81,9 @@ BUTTON_FUNCTIONS = {
   "PAUSE_LATERAL": 3,
   "PAUSE_LONGITUDINAL": 4,
   "EXPERIMENTAL_MODE": 5,
-  "TRAFFIC_MODE": 6
+  "TRAFFIC_MODE": 6,
+  "MARK_SPEED_BUMP": 7,
+  "UNDO_SPEED_BUMP": 8
 }
 
 DEVELOPER_SIDEBAR_METRICS = {
@@ -553,6 +555,7 @@ class FrogPilotVariables:
 
     toggle.speed_bump_ui = self.get_value("SpeedBumpUI")
     toggle.user_speed_bump_button = self.get_value("UserSpeedBumpButton")
+    toggle.speed_bump_mark_one_way = self.get_value("SpeedBumpMarkOneWay")
     toggle.speed_bump_detect = self.get_value("SpeedBumpDetect")
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
     toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
@@ -565,6 +568,8 @@ class FrogPilotVariables:
                                                       default=20.0, min=5.0, max=50.0) * CV.KPH_TO_MS
     toggle.speed_bump_slowdown_time = self.get_value("SpeedBumpSlowdownTime", cast=float, condition=toggle.speed_bump_slowdown, default=3.0, min=0.5, max=5.0)
     toggle.speed_bump_slowdown_strict = self.get_value("SpeedBumpSlowdownStrict", condition=toggle.speed_bump_slowdown)
+    toggle.speed_bump_slowdown_cem_delay = self.get_value("SpeedBumpSlowdownCEMDelay", cast=float, condition=toggle.speed_bump_slowdown,
+                                                          default=3.0, min=0.0, max=10.0)
     toggle.speed_bump_slowdown_table_length = self.get_value("SpeedBumpSlowdownTableLength", cast=float, condition=toggle.speed_bump_slowdown,
                                                              default=10.0, min=0.0, max=40.0)
     # Advanced; below their tuning level these fall back to the defaults
@@ -591,6 +596,8 @@ class FrogPilotVariables:
     toggle.pause_longitudinal_via_distance = toggle.openpilot_longitudinal and distance_button_control == BUTTON_FUNCTIONS["PAUSE_LONGITUDINAL"]
     toggle.personality_profile_via_distance = toggle.openpilot_longitudinal and distance_button_control == BUTTON_FUNCTIONS["PERSONALITY_PROFILE"]
     toggle.traffic_mode_via_distance = toggle.openpilot_longitudinal and distance_button_control == BUTTON_FUNCTIONS["TRAFFIC_MODE"]
+    toggle.mark_speed_bump_via_distance = distance_button_control == BUTTON_FUNCTIONS["MARK_SPEED_BUMP"]
+    toggle.undo_speed_bump_via_distance = distance_button_control == BUTTON_FUNCTIONS["UNDO_SPEED_BUMP"]
 
     distance_button_control_long = self.get_value("LongDistanceButtonControl", cast=float)
     toggle.experimental_mode_via_distance_long = toggle.openpilot_longitudinal and distance_button_control_long == BUTTON_FUNCTIONS["EXPERIMENTAL_MODE"]
@@ -600,6 +607,8 @@ class FrogPilotVariables:
     toggle.pause_longitudinal_via_distance_long = toggle.openpilot_longitudinal and distance_button_control_long == BUTTON_FUNCTIONS["PAUSE_LONGITUDINAL"]
     toggle.personality_profile_via_distance_long = toggle.openpilot_longitudinal and distance_button_control_long == BUTTON_FUNCTIONS["PERSONALITY_PROFILE"]
     toggle.traffic_mode_via_distance_long = toggle.openpilot_longitudinal and distance_button_control_long == BUTTON_FUNCTIONS["TRAFFIC_MODE"]
+    toggle.mark_speed_bump_via_distance_long = distance_button_control_long == BUTTON_FUNCTIONS["MARK_SPEED_BUMP"]
+    toggle.undo_speed_bump_via_distance_long = distance_button_control_long == BUTTON_FUNCTIONS["UNDO_SPEED_BUMP"]
 
     distance_button_control_very_long = self.get_value("VeryLongDistanceButtonControl", cast=float)
     toggle.experimental_mode_via_distance_very_long = toggle.openpilot_longitudinal and distance_button_control_very_long == BUTTON_FUNCTIONS["EXPERIMENTAL_MODE"]
@@ -609,6 +618,8 @@ class FrogPilotVariables:
     toggle.pause_longitudinal_via_distance_very_long = toggle.openpilot_longitudinal and distance_button_control_very_long == BUTTON_FUNCTIONS["PAUSE_LONGITUDINAL"]
     toggle.personality_profile_via_distance_very_long = toggle.openpilot_longitudinal and distance_button_control_very_long == BUTTON_FUNCTIONS["PERSONALITY_PROFILE"]
     toggle.traffic_mode_via_distance_very_long = toggle.openpilot_longitudinal and distance_button_control_very_long == BUTTON_FUNCTIONS["TRAFFIC_MODE"]
+    toggle.mark_speed_bump_via_distance_very_long = distance_button_control_very_long == BUTTON_FUNCTIONS["MARK_SPEED_BUMP"]
+    toggle.undo_speed_bump_via_distance_very_long = distance_button_control_very_long == BUTTON_FUNCTIONS["UNDO_SPEED_BUMP"]
 
     toggle.frogsgomoo_tweak = self.get_value("FrogsGoMoosTweak", condition=toggle.openpilot_longitudinal and toggle.car_make == "toyota")
     toggle.stoppingDecelRate = 0.01 if toggle.frogsgomoo_tweak else toggle.stoppingDecelRate
@@ -646,6 +657,10 @@ class FrogPilotVariables:
     toggle.pause_longitudinal_via_lkas = toggle.openpilot_longitudinal and lkas_button_control == BUTTON_FUNCTIONS["PAUSE_LONGITUDINAL"]
     toggle.personality_profile_via_lkas = toggle.openpilot_longitudinal and lkas_button_control == BUTTON_FUNCTIONS["PERSONALITY_PROFILE"]
     toggle.traffic_mode_via_lkas = toggle.openpilot_longitudinal and lkas_button_control == BUTTON_FUNCTIONS["TRAFFIC_MODE"]
+    toggle.mark_speed_bump_via_lkas = lkas_button_control == BUTTON_FUNCTIONS["MARK_SPEED_BUMP"]
+    toggle.undo_speed_bump_via_lkas = lkas_button_control == BUTTON_FUNCTIONS["UNDO_SPEED_BUMP"]
+    # Marks are refined from the IMU by the speed bump detector, so it runs whenever any way of marking is in use
+    toggle.speed_bump_marking = toggle.user_speed_bump_button or any(getattr(toggle, f"mark_speed_bump_via_{key}") for key in ("distance", "distance_long", "distance_very_long", "lkas"))
 
     toggle.lock_doors_timer = self.get_value("LockDoorsTimer", cast=float, condition=(toggle.car_make == "toyota"))
 
