@@ -102,6 +102,11 @@ class FrogPilotVCruise:
       mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
       has_bump = mapd_alive and sm["mapdOut"].hasNextSpeedBump
       bump_distance = sm["mapdOut"].nextSpeedBumpDistance if mapd_alive else 0.0
+      # mapd's distance is to the bump's middle. Raised tables can be tens of metres long, so brake for where it starts: the length
+      # OpenStreetMap gives, else the user's table length for tables. Other bumps are short enough for the arrival margin to cover
+      bump_length = sm["mapdOut"].nextSpeedBumpLength if mapd_alive else 0.0
+      if has_bump and bump_length <= 0 and "table" in sm["mapdOut"].nextSpeedBumpType:
+        bump_length = frogpilot_toggles.speed_bump_slowdown_table_length
 
       config = SpeedBumpConfig(
         v_target=frogpilot_toggles.speed_bump_slowdown_speed,
@@ -113,7 +118,7 @@ class FrogPilotVCruise:
         hold_distance=frogpilot_toggles.speed_bump_slowdown_hold,
         jerk_scale=frogpilot_toggles.speed_bump_slowdown_jerk,
       )
-      speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config)
+      speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config, length=bump_length)
       if speed_bump_target is not None:
         v_cruise = min(v_cruise, speed_bump_target)
     elif self.sbc.tracked_distance is not None or self.sbc.target is not None:

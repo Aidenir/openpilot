@@ -273,3 +273,51 @@ class TestSmoothness:
     assert raised, "the cap should still be there, being raised, just after the hold"
     for a, b in zip(raised, raised[1:], strict=False):
       assert b - a == pytest.approx(RELEASE_RAMP * DT_MDL)
+
+
+class TestBumpLength:
+  # mapd reports a bump's middle; a raised table can be far longer than the arrival margin covers
+  def drive_table(self, length, bump=200.0, v0=40 * CV.KPH_TO_MS, next_bump=None, config=CFG):
+    sbc = SpeedBumpController()
+    x, v, a = 0.0, v0, 0.0
+    log = []
+    for _ in range(int(40 / DT_MDL)):
+      if x < bump:
+        has, d, L = True, bump - x, length
+      elif next_bump is not None and x < next_bump:
+        has, d, L = True, next_bump - x, 0.0  # mapd moves on to the next (short) bump once the middle is crossed
+      else:
+        has, d, L = False, 0.0, 0.0
+      cap, decel = sbc.update(True, has, d, v, config, length=L)
+      a_target = max(-1.2, min(1.2, ((v0 if cap is None else min(v0, cap)) - v) / 0.5))
+      if decel > 0:
+        a_target = min(a_target, -decel)
+      a += (a_target - a) * DT_MDL / 0.3
+      v = max(0.0, v + a * DT_MDL)
+      x += v * DT_MDL
+      log.append((x, v, cap, decel))
+    return log
+
+  def test_slow_at_the_start_of_a_table(self):
+    log = self.drive_table(20.0)
+    start = 200.0 - 10.0
+    assert speed_at(log, start - TARGET_MARGIN) <= V_TARGET + 2 * CV.KPH_TO_MS
+
+  def test_table_is_held_all_the_way_across(self):
+    log = self.drive_table(20.0)
+    end = 200.0 + 10.0
+    for x, v, cap, _ in log:
+      if 200.0 - 10.0 <= x <= end + HOLD_DISTANCE - 1:
+        assert cap is not None and cap <= V_TARGET + 1 * CV.KPH_TO_MS, (x, cap)
+
+  def test_length_stays_with_its_bump_when_mapd_moves_on(self):
+    # Crossing the middle, mapd reports a short bump further on; the table must still be held to its end
+    log = self.drive_table(20.0, next_bump=260.0)
+    for x, v, cap, _ in log:
+      if 200.0 <= x <= 210.0 + HOLD_DISTANCE - 1:
+        assert cap is not None and cap <= V_TARGET + 1 * CV.KPH_TO_MS, (x, cap)
+
+  def test_unknown_length_is_unchanged(self):
+    with_zero = self.drive_table(0.0)
+    plain = drive(SpeedBumpController(), [200.0], 40 * CV.KPH_TO_MS, 40)
+    assert first_braking_distance(with_zero, 200.0) == pytest.approx(first_braking_distance(plain, 200.0), abs=0.5)

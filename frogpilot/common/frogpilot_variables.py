@@ -565,6 +565,8 @@ class FrogPilotVariables:
                                                       default=20.0, min=5.0, max=50.0) * CV.KPH_TO_MS
     toggle.speed_bump_slowdown_time = self.get_value("SpeedBumpSlowdownTime", cast=float, condition=toggle.speed_bump_slowdown, default=3.0, min=0.5, max=5.0)
     toggle.speed_bump_slowdown_strict = self.get_value("SpeedBumpSlowdownStrict", condition=toggle.speed_bump_slowdown)
+    toggle.speed_bump_slowdown_table_length = self.get_value("SpeedBumpSlowdownTableLength", cast=float, condition=toggle.speed_bump_slowdown,
+                                                             default=10.0, min=0.0, max=40.0)
     # Advanced; below their tuning level these fall back to the defaults
     toggle.speed_bump_slowdown_hold = self.get_value("SpeedBumpSlowdownHold", cast=float, condition=toggle.speed_bump_slowdown, default=6.0, min=0.0, max=20.0)
     toggle.speed_bump_slowdown_jerk = self.get_value("SpeedBumpSlowdownJerk", cast=float, condition=toggle.speed_bump_slowdown, default=1.0, min=0.5, max=2.0)

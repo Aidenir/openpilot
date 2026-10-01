@@ -412,4 +412,6 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   nextSpeedBumpDistance @29 :Float32;
   speedBumpAreaCount @30 :Int32;
   hasNextSpeedBump @31 :Bool;
+  nextSpeedBumpLength @32 :Float32;  # m along the road, centred on the nextSpeedBumpDistance point; 0 if unknown or no bump
+  nextSpeedBumpType @33 :Text;  # OSM traffic_calming value of that bump (e.g. "table", "hump"), "" if none
 }

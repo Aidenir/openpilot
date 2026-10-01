@@ -134,14 +134,23 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"SpeedBumpSlowdownMargin",
      tr("Speed Bump Arrival Margin"),
-     tr("<b>How far before the middle of the bump to already be at the \"Speed Bump Speed\".</b> The map marks the middle of the bump, so "
-        "about half a bump's length (2 metres) means being slow as the bump starts. Raise it to be slow earlier."),
+     tr("<b>How far before the bump to already be at the \"Speed Bump Speed\".</b> Measured to where the bump starts when its length is known "
+        "(tables, see \"Speed Bump Table Length\"), otherwise to its middle, which is what the map marks: there about half a bump's length "
+        "(2 metres) means being slow as the bump starts. Raise it to be slow earlier."),
+     ""},
+
+    {"SpeedBumpSlowdownTableLength",
+     tr("Speed Bump Table Length"),
+     tr("<b>How long a raised table (a long flat-topped bump, often a raised crossing) is, when the map doesn't say.</b> "
+        "The map only marks a table's middle, so braking aims for half this length before it, and the speed is held until it's crossed. "
+        "If the car still reaches a table too fast, raise it; if it slows too early, lower it. Set to 0 to treat tables like any other bump."),
      ""},
 
     {"SpeedBumpSlowdownHold",
      tr("Speed Bump Hold Distance"),
-     tr("<b>How far past the middle of the bump to keep the \"Speed Bump Speed\" before speeding up again.</b> "
-        "The default of 6 metres gets the rear wheels over a typical bump."),
+     tr("<b>How far past the bump to keep the \"Speed Bump Speed\" before speeding up again.</b> Measured from the end of the bump when its "
+        "length is known (tables), otherwise from its middle. The default of 6 metres gets the rear wheels over a typical bump; lower it to "
+        "speed up sooner."),
      ""},
 
     {"SpeedBumpSlowdownJerk",
@@ -177,6 +186,9 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     } else if (param == "SpeedBumpSlowdownMargin") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" meters"), std::map<float, QString>(), 0.5);
+
+    } else if (param == "SpeedBumpSlowdownTableLength") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 40, tr(" meters"), std::map<float, QString>(), 1);
 
     } else if (param == "SpeedBumpSlowdownHold") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 20, tr(" meters"), std::map<float, QString>(), 1);
