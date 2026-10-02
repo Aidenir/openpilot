@@ -21,6 +21,9 @@ from openpilot.frogpilot.controls.lib.speed_bump_controller import CONFIRM_SAMPL
 STOP_SPEED = 2.0         # m/s, the model's plan counts as stopping where its speed first drops below this
 STOP_POINT_SCALE = 0.85  # Where the model's stop point is braked for, as a fraction of its distance
 SHRINK_TIME = 1.0        # s, time constant a stop point coming closer is followed with, so a few short plans don't stop the car early
+HOLD_DISTANCE = 15.0     # m, inside this the stop point no longer comes closer (see update). Drive 274 (2026-10-02): the car stopped
+                         # 2-4 m short of where the model, at a standstill, still planned to creep to; holding the stop point from
+                         # 15 m out would have put it 2.0-2.6 m further on, and taken out the late squeeze (-2.45 m/s^2 at 13 km/h)
 GROW_TIME = 5.0          # s, and one moving further away
 RELEASE_TIME = 0.5       # s, the stop has to be gone this long before the brakes come off, so one dropped sample doesn't release them
 
@@ -82,6 +85,10 @@ class RedLightController(SpeedBumpController):
         estimate *= STOP_POINT_SCALE
         if self.stop_distance is None:
           self.stop_distance = estimate
+        elif estimate < self.stop_distance and self.stop_distance < HOLD_DISTANCE:
+          # Close in, the plan of a car this slow drops below STOP_SPEED almost at once, so its stop point collapses towards the
+          # car: it is only dead-reckoned from here
+          pass
         else:
           time_constant = SHRINK_TIME if estimate < self.stop_distance else GROW_TIME
           self.stop_distance += (estimate - self.stop_distance) * min(1.0, dt / time_constant)
