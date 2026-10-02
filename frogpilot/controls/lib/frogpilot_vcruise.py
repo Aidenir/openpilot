@@ -2,8 +2,9 @@
 from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
 
-from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
+from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController
+from openpilot.frogpilot.controls.lib.red_light_controller import RedLightController
 from openpilot.frogpilot.controls.lib.roundabout_controller import ENTRY_OFFSET, roundabout_config, roundabout_speed
 from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, SpeedBumpController
 from openpilot.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
@@ -17,25 +18,25 @@ class FrogPilotVCruise:
     self.csc = CurveSpeedController(self)
     self.sbc = SpeedBumpController()
     self.rbc = SpeedBumpController()
+    self.rlc = RedLightController()
     self.slc = SpeedLimitController(self)
 
     self.forcing_stop = False
     self.override_force_stop = False
+    self.tracked_model_length = 0.0
 
     self.override_force_stop_timer = 0
 
   def update(self, long_control_active, now, time_validated, v_cruise, v_ego, sm, frogpilot_toggles):
-    force_stop = self.frogpilot_planner.frogpilot_cem.stop_light_detected and long_control_active and frogpilot_toggles.force_stops
-    force_stop &= self.frogpilot_planner.model_stopped
-    force_stop &= self.override_force_stop_timer <= 0
-
-    self.force_stop_timer = self.force_stop_timer + DT_MDL if force_stop else 0
-
-    force_stop_enabled = self.force_stop_timer >= 1
+    # Stopping for a red light or stop sign (see red_light_controller). Conditional Experimental Mode's stop light detection isn't
+    # updated at a standstill, so there the model has to still be planning to stay put, or a green light wouldn't let go
+    stop_wanted = self.frogpilot_planner.frogpilot_cem.stop_light_detected and frogpilot_toggles.force_stops
+    stop_wanted &= self.frogpilot_planner.model_stopped or not sm["carState"].standstill
+    stop_wanted &= self.override_force_stop_timer <= 0
 
     self.override_force_stop |= sm["carState"].gasPressed
     self.override_force_stop |= sm["frogpilotCarState"].accelPressed
-    self.override_force_stop &= force_stop_enabled
+    self.override_force_stop &= self.forcing_stop
 
     if self.override_force_stop:
       self.override_force_stop_timer = OVERRIDE_FORCE_STOP_TIMER
@@ -81,21 +82,20 @@ class FrogPilotVCruise:
       self.slc_offset = 0
       self.slc_target = 0
 
-    if force_stop_enabled and not self.override_force_stop:
-      self.forcing_stop |= not sm["carState"].standstill
+    targets = [self.csc_target, v_cruise]
+    if frogpilot_toggles.speed_limit_controller:
+      targets.append(max(self.slc.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff)
+    v_cruise = min([target if target >= CRUISING_SPEED else v_cruise for target in targets])
 
-      self.tracked_model_length = max(self.tracked_model_length - (v_ego * DT_MDL), 0)
-      v_cruise = min((self.tracked_model_length // PLANNER_TIME), v_cruise)
+    # Red lights and stop signs. Like the speed bumps below, it only ever lowers the cruise speed, and the deceleration it asks
+    # for ("self.rlc.decel") goes out in frogpilotPlan.speedBumpDecel (see frogpilot_planner)
+    stop_target, _ = self.rlc.update(long_control_active, stop_wanted and not self.override_force_stop, sm["modelV2"].position.x,
+                                     sm["modelV2"].velocity.x, v_ego, self.speed_bump_config(frogpilot_toggles))
+    if stop_target is not None:
+      v_cruise = min(v_cruise, stop_target)
 
-    else:
-      self.forcing_stop = False
-
-      self.tracked_model_length = self.frogpilot_planner.model_length
-
-      targets = [self.csc_target, v_cruise]
-      if frogpilot_toggles.speed_limit_controller:
-        targets.append(max(self.slc.overridden_speed, self.slc_target + self.slc_offset) - v_ego_diff)
-      v_cruise = min([target if target >= CRUISING_SPEED else v_cruise for target in targets])
+    self.forcing_stop = long_control_active and self.rlc.stopping
+    self.tracked_model_length = max(self.rlc.stop_distance, 0.0) if self.rlc.stopping else self.frogpilot_planner.model_length
 
     # Speed bumps from mapd. Applied on its own rather than in "targets" above since the bump speed may be
     # set below "CRUISING_SPEED", and it only ever lowers the cruise speed, so it's safe on top of a force stop.
@@ -110,16 +110,7 @@ class FrogPilotVCruise:
       if has_bump and bump_length <= 0 and "table" in sm["mapdOut"].nextSpeedBumpType:
         bump_length = frogpilot_toggles.speed_bump_slowdown_table_length
 
-      config = SpeedBumpConfig(
-        v_target=frogpilot_toggles.speed_bump_slowdown_speed,
-        brake_time=frogpilot_toggles.speed_bump_slowdown_time,
-        max_decel=frogpilot_toggles.speed_bump_slowdown_max_decel,
-        strict=frogpilot_toggles.speed_bump_slowdown_strict,
-        response_lag=frogpilot_toggles.speed_bump_slowdown_response_time,
-        margin=frogpilot_toggles.speed_bump_slowdown_margin,
-        hold_distance=frogpilot_toggles.speed_bump_slowdown_hold,
-        jerk_scale=frogpilot_toggles.speed_bump_slowdown_jerk,
-      )
+      config = self.speed_bump_config(frogpilot_toggles)
       speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config, length=bump_length)
       if speed_bump_target is not None:
         v_cruise = min(v_cruise, speed_bump_target)
@@ -139,3 +130,16 @@ class FrogPilotVCruise:
           controller.reset()
 
     return v_cruise
+
+  @staticmethod
+  def speed_bump_config(frogpilot_toggles):
+    return SpeedBumpConfig(
+      v_target=frogpilot_toggles.speed_bump_slowdown_speed,
+      brake_time=frogpilot_toggles.speed_bump_slowdown_time,
+      max_decel=frogpilot_toggles.speed_bump_slowdown_max_decel,
+      strict=frogpilot_toggles.speed_bump_slowdown_strict,
+      response_lag=frogpilot_toggles.speed_bump_slowdown_response_time,
+      margin=frogpilot_toggles.speed_bump_slowdown_margin,
+      hold_distance=frogpilot_toggles.speed_bump_slowdown_hold,
+      jerk_scale=frogpilot_toggles.speed_bump_slowdown_jerk,
+    )
