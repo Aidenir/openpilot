@@ -885,7 +885,10 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.SOFT_DISABLE: soft_disable_alert("Sensor Data Invalid"),
   },
 
+  # FrogPilot: mapd needs GPS for road names, speed limits and speed bumps, so say when it has been missing for 1.5 km (see
+  # selfdrived). The onroad REBOOT button is shown with this alert
   EventName.noGps: {
+    ET.PERMANENT: NormalPermanentAlert("No GPS Signal", "No road names or speed bumps. Tap REBOOT if it stays"),
   },
 
   EventName.tooDistracted: {

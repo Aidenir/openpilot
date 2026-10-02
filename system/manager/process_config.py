@@ -107,7 +107,7 @@ procs = [
   PythonProcess("card", "selfdrive.car.card", only_onroad),
   PythonProcess("deleter", "system.loggerd.deleter", always_run),
   PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", driverview, enabled=(WEBCAM or not PC)),
-  PythonProcess("qcomgpsd", "system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI),
+  PythonProcess("qcomgpsd", "system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI, watchdog_max_dt=30),
   PythonProcess("pandad", "selfdrive.pandad.pandad", always_run),
   PythonProcess("paramsd", "selfdrive.locationd.paramsd", only_onroad),
   PythonProcess("lagd", "selfdrive.locationd.lagd", only_onroad),
