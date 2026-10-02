@@ -37,6 +37,18 @@ RELEASE_RAMP = 3.0      # m/s per second the cap is raised by once a bump is ove
                         # at 3 it is within 0.2 s of no ramp, and the planner's eased hand-over keeps the jerk at 1.5 m/s^3
 RELEASE_DONE = 1.5      # m/s, the raised cap is dropped once it is this far above the car's speed and no longer holds it back
 
+# Approaching a bump the car used to hold its speed, often still accelerating, until the braking point and then brake: gas, then
+# straight onto the brake (2026-10-02). Before braking starts the speed is now capped to the "approach envelope", what EASE_DECEL
+# can still shed by the bump, so the car first stops accelerating as the envelope closes in, then eases down it, coasting or
+# braking lightly, and the braking request only has the last part to do. With bumps close together (Ärtholmsvägen: every ~150 m
+# at 40 km/h) the car also pulled away hard after each one only to brake again; when the next bump is within NEAR_LOOKAHEAD it
+# pulls away at NEAR_RAMP instead
+EASE_DECEL = 0.5        # m/s^2, about what the car loses coasting at 30-50 km/h plus a touch of brake
+EASE_ACTIVE = 1.0       # m/s, the envelope caps the speed once it is this close above the car's speed, so the gas eases off first
+ENVELOPE_DROP = 1.0     # m/s per second the cap may come down by to reach the envelope, for a bump (or stop) first found inside it
+NEAR_LOOKAHEAD = 300.0  # m
+NEAR_RAMP = 0.6         # m/s per second
+
 @dataclass
 class SpeedBumpConfig:
   """The user's settings, in SI units. Defaults match the params' defaults."""
@@ -48,6 +60,7 @@ class SpeedBumpConfig:
   margin: float = 2.0         # m, be at "v_target" this far before the bump's start (its middle if its length is unknown)
   hold_distance: float = 6.0  # m, keep "v_target" until this far past the end of the bump (its middle if its length is unknown)
   jerk_scale: float = 1.0     # scales the comfort jerk envelope; lower is a softer ramp in and out
+  ease_decel: float = EASE_DECEL  # m/s^2, the approach envelope's deceleration (see EASE_DECEL); 0 turns it off
 
 DEFAULT_CONFIG = SpeedBumpConfig()
 
@@ -79,6 +92,14 @@ def brake_start_distance(v_ego, config=DEFAULT_CONFIG):
   if config.strict:
     return time_point
   return max(time_point, feasible_start_distance(v_ego, config))
+
+def approach_speed(distance, v_ego, config=DEFAULT_CONFIG):
+  """The approach envelope: the fastest the car can be "distance" metres from the bump's start (its middle if its length is
+  unknown) and still reach "v_target" "margin" before it at "ease_decel" (or "max_decel" if lower), after the response lag."""
+  if config.ease_decel <= 0:
+    return math.inf
+  remaining = max(0.0, distance - config.margin - v_ego * config.response_lag)
+  return math.sqrt(config.v_target**2 + 2.0 * min(config.ease_decel, config.max_decel) * remaining)
 
 def required_decel(distance, v_ego, config=DEFAULT_CONFIG, ease_distance=0.0):
   """Constant deceleration (m/s^2, positive) that reaches "v_target" "margin" before the bump's middle,
@@ -145,6 +166,11 @@ class SpeedBumpController:
     self.pending_samples = 0
 
     self.new_bump()
+
+  @property
+  def next_bump_near(self):
+    """A confirmed bump ahead within NEAR_LOOKAHEAD, not yet being braked for."""
+    return self.confirmed and not self.braking and 0.0 < self.tracked_distance < NEAR_LOOKAHEAD
 
   @property
   def confirmed(self):
@@ -214,13 +240,22 @@ class SpeedBumpController:
     unknown), so braking aims for the bump's start, "length / 2" before the middle, and holds until it's crossed."""
     length = max(0.0, length) if has_bump else 0.0
     target, decel = self.update_bump(active, has_bump, distance - length / 2, v_ego, config, dt, length)
-    if target is not None:
+    if target is not None and self.release_cap is not None and target > self.release_cap:
+      # The next bump's envelope (or braking) has taken over from a gentle pull-away, but sits above where the pull-away had got
+      # to: keep raising the pull-away cap until the envelope comes down to it, rather than letting the car surge up to it
+      self.release_cap += NEAR_RAMP * dt
+      target = min(target, self.release_cap)
+      self.last_target = target
+    elif target is not None:
       self.last_target = target
       self.release_cap = None
     elif active and self.last_target is not None:
       # The bump is over. Dropping the cap in one step made the MPC jump straight to its full acceleration; raise it instead
-      self.release_cap = (self.release_cap or self.last_target) + RELEASE_RAMP * dt
-      if self.release_cap > v_ego + RELEASE_DONE:
+      near = self.next_bump_near and config.ease_decel > 0
+      self.release_cap = (self.release_cap or self.last_target) + (NEAR_RAMP if near else RELEASE_RAMP) * dt
+      # With the next bump near, the gentle ramp is kept until that bump's envelope takes over, or the car would pull away hard
+      # for the moment in between
+      if self.release_cap > v_ego + RELEASE_DONE and not near:
         self.last_target = self.release_cap = None
       else:
         target = self.release_cap
@@ -255,7 +290,19 @@ class SpeedBumpController:
       on_time = d >= start - v_ego * ON_TIME_SLACK
       self.too_late = not on_time and required_decel(d, v_ego, config) > config.max_decel * TOO_LATE_FACTOR
 
-    if not active or not self.braking:
+    if not active:
+      return None, 0.0
+
+    envelope = approach_speed(d, v_ego, config)
+    if not self.braking:
+      # Down to the envelope, but no faster than ENVELOPE_DROP: a cap dropped straight below the car's speed makes the MPC brake hard
+      start = self.cap if self.cap is not None else max(v_ego, envelope)
+      cap = max(envelope, start - ENVELOPE_DROP * dt)
+      if cap < v_ego + EASE_ACTIVE:
+        self.cap = cap
+        self.target = max(config.v_target, cap)
+        return self.target, 0.0
+      self.cap = None
       return None, 0.0
 
     v_target = config.v_target
@@ -281,6 +328,9 @@ class SpeedBumpController:
       # The requested deceleration does the slowing, so the cruise cap only has to stop the MPC accelerating: it follows the
       # car's speed down to "v_target". Dropping it straight to "v_target" made the MPC brake hard on its own the moment the
       # braking started, a step in the command on top of the jerk-limited request
-      self.cap = v_ego if self.cap is None else min(self.cap, v_ego)
+      # It also keeps following the approach envelope, or the cap would step up from it to the car's speed as braking starts, the
+      # brakes easing off just as the request begins
+      cap = v_ego if self.cap is None else min(self.cap, v_ego)
+      self.cap = max(min(cap, envelope), cap - ENVELOPE_DROP * dt)
       self.target = max(v_target, self.cap)
     return self.target, self.decel

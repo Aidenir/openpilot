@@ -2,11 +2,11 @@ import pytest
 
 from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
-from openpilot.frogpilot.controls.lib.speed_bump_controller import CONFIRM_SAMPLES, SpeedBumpConfig, SpeedBumpController, \
+from openpilot.frogpilot.controls.lib.speed_bump_controller import CONFIRM_SAMPLES, ENVELOPE_DROP, SpeedBumpConfig, SpeedBumpController, \
                                                                     brake_start_distance, braking_distance, feasible_start_distance, \
                                                                     max_jerk, required_decel
 
-CFG = SpeedBumpConfig()
+CFG = SpeedBumpConfig(ease_decel=0.0)
 V_TARGET = CFG.v_target
 BRAKE_TIME = CFG.brake_time
 MAX_DECEL = CFG.max_decel
@@ -25,7 +25,7 @@ class TestSpeedBumpMath:
     # Where the time point is reachable, braking starts exactly "brake time" seconds out at the current speed
     v = 30 * CV.KPH_TO_MS
     assert brake_start_distance(v, CFG) == pytest.approx(v * BRAKE_TIME)
-    assert brake_start_distance(v, SpeedBumpConfig(brake_time=3.0)) == pytest.approx(v * 3.0)
+    assert brake_start_distance(v, SpeedBumpConfig(ease_decel=0.0, brake_time=3.0)) == pytest.approx(v * 3.0)
     starts = [brake_start_distance(kph * CV.KPH_TO_MS, CFG) for kph in range(20, 90, 5)]
     assert all(b > a for a, b in zip(starts, starts[1:], strict=False))
 
@@ -42,7 +42,7 @@ class TestSpeedBumpMath:
     assert start == pytest.approx(TARGET_MARGIN + ramps + braking_distance(v, V_TARGET, peak))
     assert required_decel(start, v, CFG) < MAX_DECEL
     # A gentler max moves it further out still
-    assert brake_start_distance(v, SpeedBumpConfig(max_decel=2.0)) > start
+    assert brake_start_distance(v, SpeedBumpConfig(ease_decel=0.0, max_decel=2.0)) > start
 
   def test_required_decel(self):
     v = 40 * CV.KPH_TO_MS
@@ -97,7 +97,7 @@ class TestSpeedBumpController:
     assert bump - first == pytest.approx(v0 * BRAKE_TIME, abs=v0 * DT_MDL * 2)
 
   def test_decel_is_bounded_and_jerk_limited(self):
-    log = drive(SpeedBumpController(), [200.0], 60 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(max_decel=2.5))
+    log = drive(SpeedBumpController(), [200.0], 60 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(ease_decel=0.0, max_decel=2.5))
     decels = [decel for *_, decel in log]
     assert max(decels) <= 2.5 + 1e-9
     for (_, v, _, a), (_, _, _, b) in zip(log, log[1:], strict=False):
@@ -186,7 +186,7 @@ class TestSpeedBumpModes:
     bump = 200.0
     v0 = 50 * CV.KPH_TO_MS
     default = drive(SpeedBumpController(), [bump], v0, 30)
-    strict = drive(SpeedBumpController(), [bump], v0, 30, config=SpeedBumpConfig(strict=True))
+    strict = drive(SpeedBumpController(), [bump], v0, 30, config=SpeedBumpConfig(ease_decel=0.0, strict=True))
 
     # Default moves the braking point out so the bump speed is still reached
     assert first_braking_distance(default, bump) == pytest.approx(feasible_start_distance(v0, CFG), abs=v0 * DT_MDL * 2)
@@ -201,39 +201,40 @@ class TestSpeedBumpModes:
 
   def test_strict_same_as_default_when_reachable(self):
     v0 = 30 * CV.KPH_TO_MS
-    assert brake_start_distance(v0, SpeedBumpConfig(strict=True)) == pytest.approx(brake_start_distance(v0, CFG))
+    assert brake_start_distance(v0, SpeedBumpConfig(ease_decel=0.0, strict=True)) == pytest.approx(brake_start_distance(v0, CFG))
 
   @pytest.mark.parametrize("margin", [0.0, 2.0, 6.0])
   def test_margin(self, margin):
     bump = 200.0
-    log = drive(SpeedBumpController(), [bump], 40 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(margin=margin))
+    log = drive(SpeedBumpController(), [bump], 40 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(ease_decel=0.0, margin=margin))
     assert speed_at(log, bump - margin) <= V_TARGET + 2 * CV.KPH_TO_MS
 
   @pytest.mark.parametrize("hold", [0.0, 6.0, 15.0])
   def test_hold_distance(self, hold):
     bump = 200.0
-    log = drive(SpeedBumpController(), [bump], 40 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(hold_distance=hold))
+    log = drive(SpeedBumpController(), [bump], 40 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(ease_decel=0.0, hold_distance=hold))
     held = [x for x, _, cap, _ in log if x >= bump and cap is not None and cap <= V_TARGET + 0.5 * CV.KPH_TO_MS]
     last_held = max(held) if held else bump
     assert last_held == pytest.approx(bump + hold, abs=1.0)
 
   @pytest.mark.parametrize("scale", [0.5, 1.0, 2.0])
   def test_jerk_scale(self, scale):
-    config = SpeedBumpConfig(jerk_scale=scale)
+    config = SpeedBumpConfig(ease_decel=0.0, jerk_scale=scale)
     log = drive(SpeedBumpController(), [200.0], 50 * CV.KPH_TO_MS, 30, config=config)
     for (_, v, _, a), (_, _, _, b) in zip(log, log[1:], strict=False):
       assert b - a <= max_jerk(v, config) * DT_MDL + 1e-6
     # A softer ramp needs an earlier braking point to still make it
-    assert feasible_start_distance(13.9, SpeedBumpConfig(jerk_scale=0.5)) > feasible_start_distance(13.9, config) or scale == 0.5
+    assert feasible_start_distance(13.9, SpeedBumpConfig(ease_decel=0.0, jerk_scale=0.5)) > feasible_start_distance(13.9, config) or scale == 0.5
 
   def test_response_time_moves_braking_out(self):
     v0 = 50 * CV.KPH_TO_MS
-    assert feasible_start_distance(v0, SpeedBumpConfig(response_lag=0.8)) == pytest.approx(
-      feasible_start_distance(v0, SpeedBumpConfig(response_lag=0.3)) + v0 * 0.5)
-    assert required_decel(30.0, v0, SpeedBumpConfig(response_lag=0.8)) > required_decel(30.0, v0, SpeedBumpConfig(response_lag=0.3))
+    assert feasible_start_distance(v0, SpeedBumpConfig(ease_decel=0.0, response_lag=0.8)) == pytest.approx(
+      feasible_start_distance(v0, SpeedBumpConfig(ease_decel=0.0, response_lag=0.3)) + v0 * 0.5)
+    slow, quick = SpeedBumpConfig(ease_decel=0.0, response_lag=0.8), SpeedBumpConfig(ease_decel=0.0, response_lag=0.3)
+    assert required_decel(30.0, v0, slow) > required_decel(30.0, v0, quick)
 
 
-SMOOTH_CFG = SpeedBumpConfig(v_target=14 * CV.KPH_TO_MS, brake_time=3.1, strict=True)  # the settings it felt jerky on
+SMOOTH_CFG = SpeedBumpConfig(ease_decel=0.0, v_target=14 * CV.KPH_TO_MS, brake_time=3.1, strict=True)  # the settings it felt jerky on
 
 
 class TestSmoothness:
@@ -263,7 +264,7 @@ class TestSmoothness:
   def test_decel_ramps_both_ways_at_the_jerk_limit(self):
     rows = self.drive()
     for a, b in zip(rows, rows[1:], strict=False):
-      assert abs(b[3] - a[3]) <= max_jerk(a[1], SpeedBumpConfig(v_target=14 * CV.KPH_TO_MS)) * DT_MDL + 1e-6
+      assert abs(b[3] - a[3]) <= max_jerk(a[1], SpeedBumpConfig(ease_decel=0.0, v_target=14 * CV.KPH_TO_MS)) * DT_MDL + 1e-6
 
   def test_cap_is_raised_gradually_after_the_bump(self):
     from openpilot.frogpilot.controls.lib.speed_bump_controller import RELEASE_RAMP
@@ -321,3 +322,54 @@ class TestBumpLength:
     with_zero = self.drive_table(0.0)
     plain = drive(SpeedBumpController(), [200.0], 40 * CV.KPH_TO_MS, 40)
     assert first_braking_distance(with_zero, 200.0) == pytest.approx(first_braking_distance(plain, 200.0), abs=0.5)
+
+
+EASED = SpeedBumpConfig()  # the defaults, with the approach envelope
+
+
+def accels(log):
+  return [(b[1] - a[1]) / DT_MDL for a, b in zip(log, log[1:], strict=False)]
+
+
+class TestEasedApproach:
+  def test_eases_off_the_gas_before_braking(self):
+    # From 50 km/h the car first stops accelerating and slows gently, and the braking request has less to do
+    bump = 300.0
+    eased = drive(SpeedBumpController(), [bump], 50 * CV.KPH_TO_MS, 40, config=EASED)
+    plain = drive(SpeedBumpController(), [bump], 50 * CV.KPH_TO_MS, 40)
+    capped = next(x for x, _, cap, _ in eased if cap is not None)
+    braking = next(x for x, _, _, decel in eased if decel > 0)
+    assert bump - capped > bump - braking + 20.0
+    assert max(decel for *_, decel in eased) < max(decel for *_, decel in plain) - 0.3
+    assert speed_at(eased, bump - TARGET_MARGIN) <= V_TARGET + 2 * CV.KPH_TO_MS
+
+  def test_the_cap_comes_down_gradually_for_a_bump_found_late(self):
+    # A bump first seen inside the envelope: the cap slides down to it instead of stepping below the car's speed
+    log = drive(SpeedBumpController(), [60.0], 50 * CV.KPH_TO_MS, 20, config=EASED)
+    braking = next(i for i, (*_, decel) in enumerate(log) if decel > 0)
+    caps = [(v, cap) for _, v, cap, _ in log[:braking] if cap is not None]
+    assert len(caps) > 5
+    assert caps[0][1] >= caps[0][0] - 0.1
+    # Before braking starts (after that the cap follows the car's speed down) it comes down at most ENVELOPE_DROP
+    assert all(b[1] >= a[1] - ENVELOPE_DROP * DT_MDL - 1e-6 for a, b in zip(caps, caps[1:], strict=False))
+
+  def test_pulls_away_gently_between_close_bumps(self):
+    # Ärtholmsvägen: bumps 44-136 m apart under a 40 km/h limit. The car pulled away at ~1 m/s^2 to near 40 and then braked
+    # at over 1 m/s^2 for the next one
+    bumps = [60.0, 104.0, 240.0, 309.0, 406.0]
+    log = drive(SpeedBumpController(), bumps, 20 * CV.KPH_TO_MS, 60, v_set=40 * CV.KPH_TO_MS, config=EASED)
+    between = [i for i, (x, *_ ) in enumerate(log) if bumps[0] + 2 < x < bumps[-1] - 2]
+    a = accels(log)
+    assert max(a[i] for i in between[:-1]) < 0.75
+    assert min(a[i] for i in between[:-1]) > -0.9
+    assert max(v for x, v, *_ in log if bumps[1] < x < bumps[2]) < 38 * CV.KPH_TO_MS
+    for b in bumps:
+      assert speed_at(log, b - TARGET_MARGIN) <= V_TARGET + 2 * CV.KPH_TO_MS
+
+  def test_pulls_away_briskly_after_the_last_bump(self):
+    # With nothing close ahead the pull-away is as quick as before
+    eased = drive(SpeedBumpController(), [100.0], 40 * CV.KPH_TO_MS, 40, config=EASED)
+    plain = drive(SpeedBumpController(), [100.0], 40 * CV.KPH_TO_MS, 40)
+    def back_to_speed(log):
+      return next(x for x, v, *_ in log if x > 100.0 and v > 38 * CV.KPH_TO_MS)
+    assert back_to_speed(eased) == pytest.approx(back_to_speed(plain), abs=5.0)
