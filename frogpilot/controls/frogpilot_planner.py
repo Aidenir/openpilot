@@ -7,6 +7,7 @@ import cereal.messaging as messaging
 from openpilot.common.constants import CV
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.gps import get_gps_location_service
+from openpilot.frogpilot.controls.lib.gps_status import GPS_STATUS_UNKNOWN, gps_status
 from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.car.cruise import V_CRUISE_MAX
@@ -55,6 +56,9 @@ class FrogPilotPlanner:
     self.gps_position = None
 
     self.gps_location_service = get_gps_location_service(self.params)
+    self.gps_location_time = None
+    self.gps_measurement_time = None
+    self.gps_status = GPS_STATUS_UNKNOWN
 
     self.tracking_lead_filter = FirstOrderFilter(0, 0.5, DT_MDL)
 
@@ -92,6 +96,13 @@ class FrogPilotPlanner:
     }
     self.gps_valid = self.gps_position["latitude"] != 0 or self.gps_position["longitude"] != 0
     self.params_memory.put("LastGPSPosition", json.dumps(self.gps_position))
+
+    now_mono = time.monotonic()
+    if sm.updated[self.gps_location_service]:
+      self.gps_location_time = now_mono
+    if sm.updated["qcomGnss"] or sm.updated["ubloxGnss"]:
+      self.gps_measurement_time = now_mono
+    self.gps_status = gps_status(now_mono, gps_location, self.gps_location_time, self.gps_measurement_time)
 
     if v_ego >= frogpilot_toggles.minimum_lane_change_speed:
       self.lane_width_left = calculate_lane_width(sm["modelV2"].laneLines[0], sm["modelV2"].laneLines[1], sm["modelV2"].roadEdges[0])
@@ -211,6 +222,7 @@ class FrogPilotPlanner:
     frogpilotPlan.speedBumpAreaCount = sm["mapdOut"].speedBumpAreaCount if mapd_alive else 0
     frogpilotPlan.tileLoaded = sm["mapdOut"].tileLoaded if mapd_alive else False
     frogpilotPlan.speedBumpDecel = float(self.speed_bump_decel)
+    frogpilotPlan.gpsStatus = self.gps_status
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed

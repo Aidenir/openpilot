@@ -60,6 +60,7 @@ protected:
 
 private:
   void paintCEMStatus(QPainter &p);
+  void paintGpsStatus(QPainter &p);
   void paintCompass(QPainter &p);
   void paintCurveSpeedControl(QPainter &p);
   void paintCurveSpeedControlTraining(QPainter &p);
@@ -89,6 +90,8 @@ private:
   bool cscControllingSpeed;
   bool cscTraining;
   bool experimentalMode;
+
+  int gpsStatus = 0;  // frogpilotPlan.gpsStatus, see frogpilot/controls/lib/gps_status.py
   bool forceCoast;
   bool lateralPaused;
   bool longitudinalPaused;

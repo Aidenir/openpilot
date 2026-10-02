@@ -195,6 +195,7 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   hasNextSpeedBump @40 :Bool;
   tileLoaded @41 :Bool;
   speedBumpDecel @42 :Float32;  # m/s^2, positive while braking for a speed bump, 0 otherwise
+  gpsStatus @43 :UInt8;  # frogpilot/controls/lib/gps_status.py: 0 unknown, 1 no GPS, 2 searching, 3 weak fix, 4 good fix
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {

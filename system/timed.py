@@ -7,7 +7,7 @@ from timezonefinder import TimezoneFinder
 from typing import NoReturn
 
 import cereal.messaging as messaging
-from openpilot.common.time_helpers import min_date, system_time_valid
+from openpilot.common.time_helpers import GPS_TIME_MARKER, min_date, system_time_valid
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 from openpilot.common.gps import get_gps_location_service
@@ -15,16 +15,28 @@ from openpilot.system.hardware import AGNOS
 
 
 def set_time(new_time):
-  diff = datetime.datetime.now() - new_time
+  """"new_time" is a naive UTC datetime."""
+  # FrogPilot: compared and set in UTC. With FrogPilot's timezone set (see set_timezone) the local time handed to
+  # "TZ=UTC date -s" put the clock that far out every time it corrected it, 2 h in a Swedish summer
+  diff = datetime.datetime.now(datetime.UTC).replace(tzinfo=None) - new_time
   if abs(diff) < datetime.timedelta(seconds=10):
     cloudlog.debug(f"Time diff too small: {diff}")
+    mark_time_from_gps()
     return
 
   cloudlog.debug(f"Setting time to {new_time}")
   try:
     subprocess.run(f"TZ=UTC date -s '{new_time}'", shell=True, check=True)
+    mark_time_from_gps()
   except subprocess.CalledProcessError:
     cloudlog.exception("timed.failed_setting_time")
+
+
+def mark_time_from_gps():
+  try:
+    GPS_TIME_MARKER.touch()
+  except OSError:
+    cloudlog.exception("timed.failed_marking_time")
 
 
 # FrogPilot variables
@@ -77,7 +89,7 @@ def main() -> NoReturn:
     pm.send('clocks', msg)
 
     gps = sm[gps_location_service]
-    gps_time = datetime.datetime.fromtimestamp(gps.unixTimestampMillis / 1000.)
+    gps_time = datetime.datetime.fromtimestamp(gps.unixTimestampMillis / 1000., datetime.UTC).replace(tzinfo=None)
     if not sm.updated[gps_location_service] or (time.monotonic() - sm.logMonoTime[gps_location_service] / 1e9) > 2.0:
       continue
     if not gps.hasFix:

@@ -144,6 +144,9 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   const cereal::ModelDataV2::Reader &modelV2 = sm["modelV2"].getModelV2();
   const cereal::SelfdriveState::Reader &selfdriveState = sm["selfdriveState"].getSelfdriveState();
 
+  // Not alive means frogpilot_process isn't running, and nothing is known about the GPS
+  gpsStatus = fpsm.alive("frogpilotPlan") ? frogpilotPlan.getGpsStatus() : 0;
+
   // Driver monitoring's attention budget: awarenessStatus runs from 1 (full) to 0 (red alert) and falls by stepChange
   // every 0.05 s step (DT_DMON) while distracted, so the time left is awareness / stepChange steps. The thresholds
   // mirror selfdrive/monitoring/helpers.py: the user's DM delays with a face in view, fixed 15 s / 6 s of a 30 s
@@ -319,6 +322,8 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     cemStatusPosition.setX(0);
     cemStatusPosition.setY(0);
   }
+
+  paintGpsStatus(p);
 
   if (!hideBottomIcons && frogpilot_toggles.value("compass").toBool()) {
     paintCompass(p);
@@ -532,6 +537,45 @@ void FrogPilotAnnotatedCameraWidget::paintCEMStatus(QPainter &p) {
     }
   }
   p.drawPixmap(cemWidget, icon->currentPixmap());
+
+  p.restore();
+}
+
+// Under the set speed's neighbour at the top (the CEM status when it's shown there): how the GPS is doing. mapd needs it for road
+// names, speed limits and speed bumps, and on 2026-10-02 it twice went a whole drive without a fix with nothing on screen saying so
+void FrogPilotAnnotatedCameraWidget::paintGpsStatus(QPainter &p) {
+  if (setSpeedRect.isEmpty() || gpsStatus == 0) {
+    return;
+  }
+
+  QColor color;
+  QString state;
+  if (gpsStatus == 4) {
+    color = QColor(80, 220, 100);
+    state = tr("good");
+  } else if (gpsStatus == 3) {
+    color = QColor(255, 200, 50);
+    state = tr("weak");
+  } else if (gpsStatus == 2) {
+    color = QColor(255, 140, 40);
+    state = tr("searching");
+  } else {
+    color = QColor(255, 80, 80);
+    state = tr("no signal");
+  }
+
+  p.save();
+
+  QRect gpsWidget(setSpeedRect.right() + UI_BORDER_SIZE, setSpeedRect.top() + widget_size + UI_BORDER_SIZE / 2, widget_size, widget_size / 2);
+  p.setBrush(blackColor(166));
+  p.setPen(QPen(color, 6));
+  p.drawRoundedRect(gpsWidget, 24, 24);
+
+  p.setPen(color);
+  p.setFont(InterFont(34, QFont::Bold));
+  p.drawText(gpsWidget.adjusted(0, 4, 0, -gpsWidget.height() / 2 + 4), Qt::AlignCenter, tr("GPS"));
+  p.setFont(InterFont(24, QFont::DemiBold));
+  p.drawText(gpsWidget.adjusted(0, gpsWidget.height() / 2 - 4, 0, -4), Qt::AlignCenter, state);
 
   p.restore();
 }

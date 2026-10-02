@@ -17,7 +17,7 @@ from cereal import log
 import cereal.messaging as messaging
 from openpilot.common.gpio import gpio_init, gpio_set
 from openpilot.common.utils import retry
-from openpilot.common.time_helpers import system_time_valid
+from openpilot.common.time_helpers import system_time_trusted
 from openpilot.common.watchdog import kick_watchdog
 from openpilot.system.hardware.tici.pins import GPIO
 from openpilot.common.swaglog import cloudlog
@@ -98,6 +98,20 @@ def at_cmd(cmd: str) -> str | None:
 def gps_enabled() -> bool:
   return "QGPS: 1" in at_cmd("AT+QGPS?")
 
+# FrogPilot: the modem's own GPS time (from its measurement reports) this far from a trusted clock while there is no fix means it
+# was set up with a wrong time hint; it is set up again with the right one, at most every MODEM_TIME_RECHECK seconds
+MODEM_TIME_TOLERANCE = 60.0  # s
+MODEM_TIME_RECHECK = 60.0    # s
+GPS_EPOCH = datetime.datetime(1980, 1, 6, tzinfo=datetime.UTC)
+GPS_LEAP_SECONDS = 18
+
+def modem_time_error(week: int, milliseconds: int) -> float | None:
+  """Seconds the modem's GPS time is ahead of the system clock, or None if the modem doesn't know the time yet."""
+  if week == 0:
+    return None
+  modem_time = GPS_EPOCH + datetime.timedelta(weeks=week, milliseconds=milliseconds, seconds=-GPS_LEAP_SECONDS)
+  return (modem_time - datetime.datetime.now(datetime.UTC)).total_seconds()
+
 def download_assistance():
   try:
     response = requests.get(ASSISTANCE_URL, timeout=5, stream=True)
@@ -176,7 +190,8 @@ def setup_quectel(diag: ModemDiag) -> bool:
     inject_assistance()
     os.remove(ASSIST_DATA_FILE)
   #at_cmd("AT+QGPSXTRADATA?")
-  if system_time_valid():
+  # FrogPilot: only a clock known to be right (see system_time_trusted); the modem does better with no hint than a wrong one
+  if system_time_trusted():
     time_str = datetime.datetime.now(datetime.UTC).replace(tzinfo=None).strftime("%Y/%m/%d,%H:%M:%S")
     at_cmd(f"AT+QGPSXTRATIME=0,\"{time_str}\",1,1,1000")
 
@@ -270,6 +285,9 @@ def main() -> NoReturn:
   gpio_set(GPIO.GNSS_PWR_EN, True)
 
   pm = messaging.PubMaster(['qcomGnss', 'gpsLocation'])
+
+  has_fix = False
+  last_time_setup = time.monotonic()
 
   while 1:
     if os.path.exists(ASSIST_DATA_FILE) and want_assistance:
@@ -368,6 +386,7 @@ def main() -> NoReturn:
       gps.speedAccuracy = math.sqrt(sum([x**2 for x in vNEDsigma]))
       # quectel gps verticalAccuracy is clipped to 500, set invalid if so
       gps.hasFix = gps.verticalAccuracy != 500
+      has_fix |= gps.hasFix
       if gps.hasFix:
         want_assistance = False
         stop_download_event.set()
@@ -432,6 +451,14 @@ def main() -> NoReturn:
         measurement_status_fields = (measurementStatusFields.items(), measurementStatusGlonassFields.items())
       else:
         raise RuntimeError(f"invalid log_type: {log_type}")
+
+      if log_type == LOG_GNSS_GPS_MEASUREMENT_REPORT and not has_fix and time.monotonic() - last_time_setup > MODEM_TIME_RECHECK:
+        error = modem_time_error(dat['week'], dat['milliseconds'])
+        if error is not None and abs(error) > MODEM_TIME_TOLERANCE and system_time_trusted():
+          cloudlog.warning(f"modem GPS time is {error:.0f} s off a trusted clock with no fix, setting it up again")
+          setup_quectel(diag)
+          kick_watchdog()
+        last_time_setup = time.monotonic()
 
       for k,v in dat.items():
         if k == "version":

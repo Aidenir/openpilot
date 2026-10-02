@@ -3,6 +3,7 @@ import os
 import signal
 import shutil
 import struct
+import threading
 import time
 import subprocess
 from collections.abc import Callable, ValuesView
@@ -343,11 +344,14 @@ class ManagerProcess(ABC):
     except Exception:
       cloudlog.exception(f"failed to send watchdog diagnostics for {self.name} to sentry")
 
-  def dump_watchdog_diagnostics(self, dt: float) -> None:
-    if self.name != "ui" or self.proc is None or self.proc.pid is None:
+  def dump_watchdog_diagnostics(self, dt: float, pid: int | None = None, exitcode: int | None = None, gdb: bool = True) -> None:
+    if pid is None:
+      if self.proc is None or self.proc.pid is None:
+        return
+      pid, exitcode = self.proc.pid, self.proc.exitcode
+    if self.name != "ui":
       return
 
-    pid = self.proc.pid
     try:
       os.makedirs(WATCHDOG_DIAG_DIR, exist_ok=True)
       ts = time.strftime("%Y-%m-%d--%H-%M-%S")
@@ -356,8 +360,9 @@ class ManagerProcess(ABC):
       self._write_diag_file(os.path.join(diag_dir, "summary.txt"), "\n".join((
         f"name={self.name}",
         f"pid={pid}",
-        f"exitcode={self.proc.exitcode}",
-        f"started={self.proc.exitcode is None}",
+        f"exitcode={exitcode}",
+        f"started={exitcode is None}",
+        f"gdb={gdb}",
         f"watchdog_dt={dt:.3f}s",
         f"watchdog_max_dt={self.watchdog_max_dt}s",
         f"last_watchdog_time={self.last_watchdog_time}",
@@ -367,7 +372,8 @@ class ManagerProcess(ABC):
 
       self._dump_watchdog_proc_tree(diag_dir, pid)
       self._dump_watchdog_system_state(diag_dir, pid)
-      self._dump_watchdog_gdb(diag_dir, pid)
+      if gdb:
+        self._dump_watchdog_gdb(diag_dir, pid)
       self._report_watchdog_diagnostics_to_sentry(diag_dir, pid, dt)
       self._write_diag_file(os.path.join(diag_dir, "DONE"), "complete")
 
@@ -391,8 +397,16 @@ class ManagerProcess(ABC):
     if dt > self.watchdog_max_dt:
       if self.watchdog_seen and ENABLE_WATCHDOG:
         cloudlog.error(f"Watchdog timeout for {self.name} (exitcode {self.proc.exitcode}) restarting ({started=})")
-        self.dump_watchdog_diagnostics(dt)
-        self.restart()
+        if started:
+          # FrogPilot: onroad, restart straight away and collect the diagnostics in the background without gdb. Done in line they
+          # took ~8 s (gdb alone may take 30), the UI stayed frozen all that time and the manager stopped publishing managerState,
+          # so selfdrived raised commIssue on top of the frozen screen (2026-10-02)
+          pid, exitcode = self.proc.pid, self.proc.exitcode
+          self.restart()
+          threading.Thread(target=self.dump_watchdog_diagnostics, args=(dt, pid, exitcode, False), daemon=True).start()
+        else:
+          self.dump_watchdog_diagnostics(dt)
+          self.restart()
     else:
       self.watchdog_seen = True
 
