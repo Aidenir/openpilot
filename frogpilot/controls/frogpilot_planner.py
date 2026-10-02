@@ -130,12 +130,16 @@ class FrogPilotPlanner:
     if self.frogpilot_vcruise.sbc.target is not None or self.frogpilot_vcruise.rbc.target is not None:
       self.speed_bump_cem_block_until = time.monotonic() + frogpilot_toggles.speed_bump_slowdown_cem_delay
 
-    # Deceleration requested by the speed bump slowdown, for a bump or a roundabout, whichever brakes harder. Applied by the
-    # longitudinal planner (see "speedBumpDecel" there). It is jerk-limited and never more than the "SpeedBumpSlowdownMaxDecel"
-    # setting (at most 3.5 m/s^2, the stock ACCEL_MIN). Nothing while openpilot isn't in control (including the gas being pressed),
-    # and coasting on request wins
-    speed_bump_active = long_control_active and frogpilot_toggles.speed_bump_slowdown and not sm["frogpilotCarState"].forceCoast
-    self.speed_bump_decel = max(self.frogpilot_vcruise.sbc.decel, self.frogpilot_vcruise.rbc.decel) if speed_bump_active else 0.0
+    # Deceleration requested by the speed bump slowdown, for a bump or a roundabout, and by "Force Stops" for a red light or stop
+    # sign, whichever brakes harder. Applied by the longitudinal planner (see "speedBumpDecel" there). It is jerk-limited and never
+    # more than the "SpeedBumpSlowdownMaxDecel" setting, or red_light_controller's MAX_DECEL (at most 3.5 m/s^2, the stock
+    # ACCEL_MIN). Nothing while openpilot isn't in control (including the gas being pressed), and coasting on request wins
+    requests = [0.0]
+    if frogpilot_toggles.speed_bump_slowdown:
+      requests += [self.frogpilot_vcruise.sbc.decel, self.frogpilot_vcruise.rbc.decel]
+    if frogpilot_toggles.force_stops:
+      requests.append(self.frogpilot_vcruise.rlc.decel)
+    self.speed_bump_decel = max(requests) if long_control_active and not sm["frogpilotCarState"].forceCoast else 0.0
 
     if self.gps_valid and time_validated and frogpilot_toggles.weather_presets:
       self.frogpilot_weather.update_weather(now, frogpilot_toggles)
