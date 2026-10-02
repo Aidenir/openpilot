@@ -89,6 +89,11 @@ def manager_init() -> None:
   if not build_metadata.openpilot.is_dirty:
     os.environ['CLEAN'] = '1'
 
+  # FrogPilot: mapd's msgq library (gomsgq) decides at startup whether queues are "/dev/shm/msgq_<name>" or "/dev/shm/<name>"
+  # by checking whether msgq_logMessage exists yet. Started before logmessaged had made it, mapd used queues of its own and
+  # never saw carState or the GPS, or published anything: no road names or bumps for the whole boot (2026-10-02)
+  os.environ['USE_MSGQ_PREFIX'] = 'true'
+
   # init logging
   sentry.init(sentry.SentryProject.SELFDRIVE)
   cloudlog.bind_global(dongle_id=dongle_id,
