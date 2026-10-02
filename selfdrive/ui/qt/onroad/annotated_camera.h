@@ -43,6 +43,7 @@ private:
 
   DrivingPersonalityButton *personality_btn;
   SpeedBumpMarkButton *speed_bump_mark_btn;
+  GpsRebootButton *gps_reboot_btn;
   ScreenRecorder *screen_recorder;
 
 protected:

@@ -28,6 +28,9 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
   speed_bump_mark_btn = new SpeedBumpMarkButton(this);
   speed_bump_mark_btn->setVisible(false);
 
+  gps_reboot_btn = new GpsRebootButton(this);
+  gps_reboot_btn->setVisible(false);
+
   screen_recorder = new ScreenRecorder(this);
   screen_recorder->setVisible(false);
 }
@@ -61,6 +64,14 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
     int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - speed_bump_mark_btn->width() : UI_BORDER_SIZE * 2;
     speed_bump_mark_btn->move(x, height() * 0.55 - speed_bump_mark_btn->height() / 2);
     speed_bump_mark_btn->updateState(frogpilot_toggles.value("speed_bump_detect").toBool());
+  }
+
+  // Across from the speed bump button, on the passenger's side
+  bool gps_reboot_btn_enabled = GpsRebootButton::alertShown(s);
+  gps_reboot_btn->setVisible(gps_reboot_btn_enabled);
+  if (gps_reboot_btn_enabled) {
+    int x = frogpilot_nvg->rightHandDM ? UI_BORDER_SIZE * 2 : width() - UI_BORDER_SIZE * 2 - gps_reboot_btn->width();
+    gps_reboot_btn->move(x, height() * 0.55 - gps_reboot_btn->height() / 2);
   }
 
   screen_recorder->move(experimental_btn->x() - UI_BORDER_SIZE - btn_size, experimental_btn->y());

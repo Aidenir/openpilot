@@ -9,6 +9,7 @@
 #include <QTimer>
 
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/qt/widgets/input.h"
 
 DrivingPersonalityButton::DrivingPersonalityButton(QWidget *parent) : QPushButton(parent) {
   setFixedSize(btn_size + UI_BORDER_SIZE, btn_size);
@@ -218,3 +219,39 @@ void SpeedBumpMarkButton::paintEvent(QPaintEvent *event) {
   }
 }
 
+
+static const QColor REBOOT_COLOR(255, 80, 80);
+
+GpsRebootButton::GpsRebootButton(QWidget *parent) : QPushButton(parent) {
+  // The same size as the speed bump button
+  setFixedSize(260, 180);
+
+  QObject::connect(this, &QPushButton::clicked, [this] {
+    QString prompt = tr("Reboot the device to get GPS back?\n\nopenpilot disengages until it has started again, about a minute. "
+                        "Keep your hands on the wheel.");
+    if (ConfirmationDialog::confirm(prompt, tr("Reboot"), this)) {
+      params.putBool("DoReboot", true);
+    }
+  });
+}
+
+bool GpsRebootButton::alertShown(const UIState &s) {
+  const SubMaster &sm = *(s.sm);
+  return sm.alive("selfdriveState") && QString(sm["selfdriveState"].getSelfdriveState().getAlertType().cStr()).startsWith("noGps/");
+}
+
+void GpsRebootButton::paintEvent(QPaintEvent *event) {
+  QPainter p(this);
+  p.setRenderHint(QPainter::Antialiasing);
+
+  QRect box = rect().adjusted(4, 4, -4, -4);
+  p.setBrush(isDown() ? QColor(60, 60, 60, 230) : QColor(0, 0, 0, 180));
+  p.setPen(QPen(REBOOT_COLOR, 6));
+  p.drawRoundedRect(box, 30, 30);
+
+  p.setPen(REBOOT_COLOR);
+  p.setFont(InterFont(50, QFont::Bold));
+  p.drawText(box.adjusted(10, 10, -10, -60), Qt::AlignCenter, tr("REBOOT"));
+  p.setFont(InterFont(30, QFont::DemiBold));
+  p.drawText(box.adjusted(10, box.height() - 70, -10, -10), Qt::AlignCenter, tr("no GPS"));
+}

@@ -18,6 +18,7 @@ import cereal.messaging as messaging
 from openpilot.common.gpio import gpio_init, gpio_set
 from openpilot.common.utils import retry
 from openpilot.common.time_helpers import system_time_valid
+from openpilot.common.watchdog import kick_watchdog
 from openpilot.system.hardware.tici.pins import GPIO
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.qcomgpsd.modemdiag import ModemDiag, DIAG_LOG_F, setup_logs, send_recv
@@ -122,8 +123,11 @@ def downloader_loop(event):
   if alt_path is not None and os.path.exists(alt_path):
     shutil.copyfile(alt_path, ASSIST_DATA_FILE)
 
+  # FrogPilot: qcomgpsd is SIGKILLed when the manager's watchdog restarts it (see main), which skips its cleanup, so stop
+  # when orphaned rather than retrying the download every 10 s forever (it never succeeds without a connection)
+  parent = os.getppid()
   try:
-    while not os.path.exists(ASSIST_DATA_FILE) and not event.is_set():
+    while not os.path.exists(ASSIST_DATA_FILE) and not event.is_set() and os.getppid() == parent:
       download_assistance()
       event.wait(timeout=10)
   except KeyboardInterrupt:
@@ -259,6 +263,9 @@ def main() -> NoReturn:
   r = setup_quectel(diag)
   want_assistance = not r
   cloudlog.warning("quectel setup done")
+  # FrogPilot: the modem reports measurements several times a second, with or without a fix. Sometimes it accepts the setup and
+  # then sends nothing for the whole drive (2026-10-02); the manager restarts us if no report arrives for "watchdog_max_dt"
+  kick_watchdog()
   gpio_init(GPIO.GNSS_PWR_EN, True)
   gpio_set(GPIO.GNSS_PWR_EN, True)
 
@@ -268,6 +275,7 @@ def main() -> NoReturn:
     if os.path.exists(ASSIST_DATA_FILE) and want_assistance:
       setup_quectel(diag)
       want_assistance = False
+      kick_watchdog()
 
     opcode, payload = diag.recv()
     if opcode != DIAG_LOG_F:
@@ -284,6 +292,8 @@ def main() -> NoReturn:
 
     if log_type not in LOG_TYPES:
       continue
+
+    kick_watchdog()
 
     if DEBUG:
       print(f"{time.time():.4f}: got log: {log_type} len {len(log_payload)}")  # noqa: TID251

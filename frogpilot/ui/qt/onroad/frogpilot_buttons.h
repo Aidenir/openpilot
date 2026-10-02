@@ -72,3 +72,20 @@ private:
   QTimer *holdTimer;
 };
 
+
+// Shown with the "No GPS Signal" alert. The modem's GPS sometimes stays silent for a whole drive (2026-10-02) and only a reboot
+// has been seen to bring it back. A tap asks for confirmation first, since rebooting drops openpilot until it is back up
+class GpsRebootButton : public QPushButton {
+  Q_OBJECT
+
+public:
+  explicit GpsRebootButton(QWidget *parent = 0);
+
+  // Whether the "No GPS Signal" alert is the one on screen
+  static bool alertShown(const UIState &s);
+
+private:
+  void paintEvent(QPaintEvent *event) override;
+
+  Params params;
+};
