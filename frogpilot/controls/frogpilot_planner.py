@@ -125,16 +125,17 @@ class FrogPilotPlanner:
 
     self.v_cruise = self.frogpilot_vcruise.update(long_control_active, now, time_validated, v_cruise, v_ego, sm, frogpilot_toggles)
 
-    # Slowing for a speed bump takes the car under "Conditional Experimental Mode"'s speed limit, and the switch to Experimental
-    # Mode made it creep over the bump and pull away slowly. Hold that condition off while slowing for a bump and for a moment after
-    if self.frogpilot_vcruise.sbc.target is not None:
+    # Slowing for a speed bump or a roundabout takes the car under "Conditional Experimental Mode"'s speed limit, and the switch to
+    # Experimental Mode made it creep over the bump and pull away slowly. Hold that condition off while slowing and for a moment after
+    if self.frogpilot_vcruise.sbc.target is not None or self.frogpilot_vcruise.rbc.target is not None:
       self.speed_bump_cem_block_until = time.monotonic() + frogpilot_toggles.speed_bump_slowdown_cem_delay
 
-    # Deceleration requested by the speed bump slowdown, applied by the longitudinal planner (see "speedBumpDecel" there). It is
-    # jerk-limited and never more than the "SpeedBumpSlowdownMaxDecel" setting (at most 3.5 m/s^2, the stock ACCEL_MIN). Nothing
-    # while openpilot isn't in control (including the gas being pressed), and coasting on request wins
+    # Deceleration requested by the speed bump slowdown, for a bump or a roundabout, whichever brakes harder. Applied by the
+    # longitudinal planner (see "speedBumpDecel" there). It is jerk-limited and never more than the "SpeedBumpSlowdownMaxDecel"
+    # setting (at most 3.5 m/s^2, the stock ACCEL_MIN). Nothing while openpilot isn't in control (including the gas being pressed),
+    # and coasting on request wins
     speed_bump_active = long_control_active and frogpilot_toggles.speed_bump_slowdown and not sm["frogpilotCarState"].forceCoast
-    self.speed_bump_decel = self.frogpilot_vcruise.sbc.decel if speed_bump_active else 0.0
+    self.speed_bump_decel = max(self.frogpilot_vcruise.sbc.decel, self.frogpilot_vcruise.rbc.decel) if speed_bump_active else 0.0
 
     if self.gps_valid and time_validated and frogpilot_toggles.weather_presets:
       self.frogpilot_weather.update_weather(now, frogpilot_toggles)

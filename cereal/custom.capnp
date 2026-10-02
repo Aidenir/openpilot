@@ -417,4 +417,7 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   hasNextSpeedBump @31 :Bool;
   nextSpeedBumpLength @32 :Float32;  # m along the road, centred on the nextSpeedBumpDistance point; 0 if unknown or no bump
   nextSpeedBumpType @33 :Text;  # OSM traffic_calming value of that bump (e.g. "table", "hump"), "" if none
+  hasNextRoundabout @34 :Bool;
+  nextRoundaboutDistance @35 :Float32;  # m along the road to where it meets the ring's centreline
+  nextRoundaboutDiameter @36 :Float32;  # m, the ring's centreline; 0 for a mini roundabout or no roundabout
 }

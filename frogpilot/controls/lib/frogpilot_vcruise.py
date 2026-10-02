@@ -4,6 +4,7 @@ from openpilot.common.realtime import DT_MDL
 
 from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED, PLANNER_TIME
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController
+from openpilot.frogpilot.controls.lib.roundabout_controller import ENTRY_OFFSET, roundabout_config, roundabout_speed
 from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, SpeedBumpController
 from openpilot.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
 
@@ -15,6 +16,7 @@ class FrogPilotVCruise:
 
     self.csc = CurveSpeedController(self)
     self.sbc = SpeedBumpController()
+    self.rbc = SpeedBumpController()
     self.slc = SpeedLimitController(self)
 
     self.forcing_stop = False
@@ -121,7 +123,19 @@ class FrogPilotVCruise:
       speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config, length=bump_length)
       if speed_bump_target is not None:
         v_cruise = min(v_cruise, speed_bump_target)
-    elif self.sbc.tracked_distance is not None or self.sbc.target is not None:
-      self.sbc.reset()
+
+      # Roundabouts, with the same settings: slowed for by the give-way line at a speed from the ring's size, then let go
+      # (see roundabout_controller). Its deceleration request is combined with the bump's in frogpilot_planner
+      has_roundabout = mapd_alive and sm["mapdOut"].hasNextRoundabout
+      entry_speed = roundabout_speed(sm["mapdOut"].nextRoundaboutDiameter) if has_roundabout else None
+      roundabout_distance = sm["mapdOut"].nextRoundaboutDistance - ENTRY_OFFSET if has_roundabout else 0.0
+      roundabout_target, _ = self.rbc.update(long_control_active, entry_speed is not None, roundabout_distance, v_ego,
+                                             roundabout_config(config, entry_speed or config.v_target))
+      if roundabout_target is not None:
+        v_cruise = min(v_cruise, roundabout_target)
+    else:
+      for controller in (self.sbc, self.rbc):
+        if controller.tracked_distance is not None or controller.target is not None:
+          controller.reset()
 
     return v_cruise
