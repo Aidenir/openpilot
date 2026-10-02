@@ -10,6 +10,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"AdbEnabled", {PERSISTENT, BOOL}},
     {"AlwaysOnDM", {PERSISTENT, BOOL}},
     {"DMAwarenessBar", {PERSISTENT, BOOL, "0", "0", 1}},
+    {"HideDMIcon", {PERSISTENT, BOOL, "0", "0", 1}},
+    {"CEMStatusTop", {PERSISTENT, BOOL, "0", "0", 1}},
     {"DMBeepingDelay", {PERSISTENT, INT, "15", "15", 2}},
     {"DMCriticalDelay", {PERSISTENT, INT, "30", "30", 2}},
     {"DMGreenAlertDelay", {PERSISTENT, INT, "5", "5", 2}},

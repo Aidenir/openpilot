@@ -312,7 +312,8 @@ void FrogPilotAnnotatedCameraWidget::mousePressEvent(QMouseEvent *mouseEvent) {
 void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState &s) {
   bottomBannerOffset = 5;
 
-  if (!hideBottomIcons && frogpilot_toggles.value("cem_status").toBool()) {
+  bool cemStatusTop = frogpilot_toggles.value("cem_status_top").toBool();
+  if ((cemStatusTop || !hideBottomIcons) && frogpilot_toggles.value("cem_status").toBool()) {
     paintCEMStatus(p);
   } else {
     cemStatusPosition.setX(0);
@@ -373,7 +374,7 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     paintSpeedBumpAreaCount(p);
   }
 
-  if (!hideBottomIcons && frogpilot_toggles.value("dm_awareness_bar").toBool()) {
+  if (frogpilot_toggles.value("dm_awareness_bar").toBool()) {
     paintDriverAwareness(p);
   }
 
@@ -482,14 +483,21 @@ void FrogPilotAnnotatedCameraWidget::paintBlindSpotPath(QPainter &p) {
 }
 
 void FrogPilotAnnotatedCameraWidget::paintCEMStatus(QPainter &p) {
-  if (dmIconPosition == QPoint(0, 0)) {
+  bool atTop = frogpilot_toggles.value("cem_status_top").toBool();
+  if (atTop ? setSpeedRect.isEmpty() : dmIconPosition == QPoint(0, 0)) {
     return;
   }
 
   p.save();
 
-  cemStatusPosition.setX(dmIconPosition.x() + (rightHandDM ? -img_size - widget_size : widget_size));
-  cemStatusPosition.setY(dmIconPosition.y() - widget_size / 2);
+  if (atTop) {
+    // Beside the set speed and the speed limit sign under it
+    cemStatusPosition.setX(setSpeedRect.right() + UI_BORDER_SIZE);
+    cemStatusPosition.setY(setSpeedRect.top());
+  } else {
+    cemStatusPosition.setX(dmIconPosition.x() + (rightHandDM ? -img_size - widget_size : widget_size));
+    cemStatusPosition.setY(dmIconPosition.y() - widget_size / 2);
+  }
 
   QRect cemWidget(cemStatusPosition, QSize(widget_size, widget_size));
 
@@ -996,17 +1004,17 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedBumpWarning(QPainter &p) {
 }
 
 void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
-  if (!dmAwarenessValid || dmIconPosition == QPoint(0, 0)) {
+  if (!dmAwarenessValid) {
     return;
   }
 
   p.save();
 
-  // A vertical bar beside the driver monitoring face, on the side facing the middle of the screen
+  // A vertical bar at the right edge of the screen, vertically centred, clear of the buttons in the corners
   const int barWidth = 30;
   const int barHeight = btn_size + 40;
-  int barX = rightHandDM ? dmIconPosition.x() - btn_size / 2 - UI_BORDER_SIZE - barWidth : dmIconPosition.x() + btn_size / 2 + UI_BORDER_SIZE;
-  int barY = dmIconPosition.y() + btn_size / 2 - barHeight;
+  int barX = width() - UI_BORDER_SIZE - barWidth - 8;
+  int barY = (height() - barHeight) / 2;
   QRect barRect(barX, barY, barWidth, barHeight);
 
   float level = std::clamp(dmAwareness, 0.0f, 1.0f);
@@ -1042,11 +1050,12 @@ void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
 
   p.setFont(InterFont(34, QFont::Bold));
   p.setPen(Qt::white);
-  QRect labelRect(barX - 60, barY - 50, barWidth + 120, 44);
-  p.drawText(labelRect, Qt::AlignCenter, secondsStr);
+  // Right-aligned with the bar so the text doesn't run off the edge of the screen
+  QRect labelRect(barX - 140, barY - 50, barWidth + 144, 44);
+  p.drawText(labelRect, Qt::AlignRight | Qt::AlignVCenter, secondsStr);
   if (!modeStr.isEmpty()) {
     p.setFont(InterFont(26, QFont::DemiBold));
-    p.drawText(labelRect.translated(0, -36), Qt::AlignCenter, modeStr);
+    p.drawText(labelRect.translated(0, -36), Qt::AlignRight | Qt::AlignVCenter, modeStr);
   }
 
   p.restore();

@@ -86,6 +86,18 @@ void DriverMonitorRenderer::draw(QPainter &painter, const QRect &surface_rect) {
     y -= UI_BORDER_SIZE;
   }
 
+  // FrogPilot variables
+  if (frogpilot_toggles.value("hide_dm_icon").toBool()) {
+    // Not drawn, but its spot is still where the icons that are laid out around it go
+    painter.restore();
+    if (frogpilot_nvg) {
+      frogpilot_nvg->dmIconPosition.setX(x);
+      frogpilot_nvg->dmIconPosition.setY(y);
+      frogpilot_nvg->rightHandDM = is_rhd;
+    }
+    return;
+  }
+
   drawIcon(painter, QPoint(x, y), dm_img, QColor(0, 0, 0, 70), opacity);
 
   QPointF keypoints[std::size(DEFAULT_FACE_KPTS_3D)];

@@ -41,9 +41,21 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"DMAwarenessBar",
      tr("Attention Budget Bar"),
-     tr("<b>Show driver monitoring's attention budget as a bar next to the face icon.</b> It drains while you look away and refills while you watch the road.<br><br>"
+     tr("<b>Show driver monitoring's attention budget as a bar at the right edge of the screen.</b> It drains while you look away and refills while you watch the road.<br><br>"
         "The two marks show where the green \"Pay Attention\" alert and the orange beeping start, and the number is the seconds left before the red alert. "
         "When your face can't be seen it switches to the steering-wheel budget, which always lasts 30 seconds."),
+     ""},
+
+    {"HideDMIcon",
+     tr("Hide Head Tracking Icon"),
+     tr("<b>Don't draw the driver monitoring face and its head tracking arcs on the driving screen.</b> Driver monitoring itself keeps "
+        "running exactly as before; only the icon goes. The \"Attention Budget Bar\" shows how it's doing instead."),
+     ""},
+
+    {"CEMStatusTop",
+     tr("Experimental Mode Icon At The Top"),
+     tr("<b>Show the \"Conditional Experimental Mode\" icon at the top, beside the set speed and speed limit,</b> instead of at the bottom "
+        "next to the driver monitoring icon. It stays on screen when the bottom icons are hidden for an alert."),
      ""},
 
     {"MassageReminder",
