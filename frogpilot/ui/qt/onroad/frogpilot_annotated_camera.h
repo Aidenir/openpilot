@@ -65,6 +65,7 @@ private:
   void paintCurveSpeedControl(QPainter &p);
   void paintCurveSpeedControlTraining(QPainter &p);
   void paintDriverAwareness(QPainter &p);
+  void paintApproachIcons(QPainter &p);
   void paintLateralPaused(QPainter &p);
   void paintLongitudinalPaused(QPainter &p);
   void paintPedalIcons(QPainter &p);
@@ -102,6 +103,11 @@ private:
 
   int animationFrameIndex;
   bool dmAwarenessActiveMode = true;
+
+  // Blinking icons under the speed signs for a speed bump or roundabout coming up (distances in metres, -1 if none close)
+  float approachBumpMetres = -1.0f;
+  float approachRoundaboutMetres = -1.0f;
+  int speedSignsBottom = 0;
   bool dmAwarenessValid = false;
 
   float dmAwareness = 1.0f;

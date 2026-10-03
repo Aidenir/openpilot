@@ -111,7 +111,10 @@ class FrogPilotVCruise:
         bump_length = frogpilot_toggles.speed_bump_slowdown_table_length
 
       config = self.speed_bump_config(frogpilot_toggles)
-      speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config, length=bump_length)
+      # How harsh this bump was felt to be on earlier drives, in this direction; -1 until mapd has learned it
+      bump_severity = sm["mapdOut"].nextSpeedBumpSeverity if has_bump and sm["mapdOut"].nextSpeedBumpLearned else -1.0
+      speed_bump_target, _ = self.sbc.update(long_control_active, has_bump, bump_distance, v_ego, config, length=bump_length,
+                                             severity=bump_severity)
       if speed_bump_target is not None:
         v_cruise = min(v_cruise, speed_bump_target)
 
@@ -142,4 +145,5 @@ class FrogPilotVCruise:
       margin=frogpilot_toggles.speed_bump_slowdown_margin,
       hold_distance=frogpilot_toggles.speed_bump_slowdown_hold,
       jerk_scale=frogpilot_toggles.speed_bump_slowdown_jerk,
+      mild_extra=frogpilot_toggles.speed_bump_mild_extra_speed,
     )

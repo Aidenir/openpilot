@@ -58,8 +58,9 @@ class RedLightController(SpeedBumpController):
     """Braking for, or holding at, a stop point."""
     return self.stop_distance is not None and self.braking and not self.too_late
 
-  def track(self, has_bump, distance, v_ego, dt=DT_MDL, length=0.0):
-    # update() works the stop point out itself, so it is taken as it is
+  def track(self, has_bump, distance, v_ego, dt=DT_MDL, length=0.0, severity=-1.0):
+    # update() works the stop point out itself, so it is taken as it is. A stop point has no learned severity, so the speed bump
+    # "mild bump" extra speed never applies to it
     if not has_bump:
       self.tracked_distance = None
       self.new_bump()
@@ -68,6 +69,7 @@ class RedLightController(SpeedBumpController):
       self.new_bump()
     self.tracked_distance = distance
     self.tracked_length = 0.0
+    self.tracked_severity = -1.0
     self.confirmed_samples = CONFIRM_SAMPLES
 
   def update(self, active, stop_wanted, position_x, velocity_x, v_ego, config, dt=DT_MDL):

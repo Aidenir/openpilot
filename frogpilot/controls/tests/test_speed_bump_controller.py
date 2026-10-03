@@ -373,3 +373,45 @@ class TestEasedApproach:
     def back_to_speed(log):
       return next(x for x, v, *_ in log if x > 100.0 and v > 38 * CV.KPH_TO_MS)
     assert back_to_speed(eased) == pytest.approx(back_to_speed(plain), abs=5.0)
+
+
+class TestLearnedSeverity:
+  def bump_speed(self, severity, mild_extra=10 * CV.KPH_TO_MS):
+    sbc = SpeedBumpController()
+    sbc.tracked_severity = severity
+    return sbc.bump_config(SpeedBumpConfig(mild_extra=mild_extra)).v_target
+
+  def test_mild_bump_is_taken_faster_and_harsh_one_not(self):
+    assert self.bump_speed(0.0) == pytest.approx(V_TARGET + 10 * CV.KPH_TO_MS)
+    assert self.bump_speed(0.5) == pytest.approx(V_TARGET + 5 * CV.KPH_TO_MS)
+    assert self.bump_speed(1.0) == pytest.approx(V_TARGET)
+
+  def test_unlearned_or_disabled_uses_the_bump_speed(self):
+    assert self.bump_speed(-1.0) == pytest.approx(V_TARGET)
+    assert self.bump_speed(0.0, mild_extra=0.0) == pytest.approx(V_TARGET)
+
+  def test_closed_loop_speed_over_mild_and_harsh_bumps(self):
+    def speed_at_bump(severity):
+      sbc, config = SpeedBumpController(), SpeedBumpConfig(mild_extra=10 * CV.KPH_TO_MS)
+      x, v, a = 0.0, 40 * CV.KPH_TO_MS, 0.0
+      for _ in range(int(30 / DT_MDL)):
+        cap, decel = sbc.update(True, x < 200.0, 200.0 - x, v, config, severity=severity)
+        a_target = max(-1.2, min(1.2, ((40 * CV.KPH_TO_MS if cap is None else cap) - v) / 0.5))
+        a_target = min(a_target, -decel) if decel > 0 else a_target
+        a += (a_target - a) * DT_MDL / 0.3
+        v = max(0.0, v + a * DT_MDL)
+        x += v * DT_MDL
+        if x >= 200.0 - TARGET_MARGIN:
+          return v
+    assert speed_at_bump(1.0) <= V_TARGET + 2 * CV.KPH_TO_MS
+    assert speed_at_bump(0.0) == pytest.approx(V_TARGET + 10 * CV.KPH_TO_MS, abs=2 * CV.KPH_TO_MS)
+
+  def test_severity_stays_with_its_bump(self):
+    # Past the middle mapd reports the next bump's severity; the one being crossed keeps its own
+    sbc = SpeedBumpController()
+    config = SpeedBumpConfig(mild_extra=10 * CV.KPH_TO_MS)
+    for i in range(60):
+      sbc.update(True, True, 20.0 - i * 0.4, 20 * CV.KPH_TO_MS, config, severity=0.0)
+    assert sbc.tracked_severity == 0.0
+    sbc.update(True, True, 80.0, 20 * CV.KPH_TO_MS, config, severity=1.0)
+    assert sbc.tracked_severity == 0.0

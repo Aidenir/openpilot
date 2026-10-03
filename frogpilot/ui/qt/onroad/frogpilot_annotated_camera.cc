@@ -1,6 +1,8 @@
 #include "frogpilot/ui/qt/onroad/frogpilot_annotated_camera.h"
 
+#include <QDateTime>
 #include <QPainterPath>
+#include <QtMath>
 
 FrogPilotAnnotatedCameraWidget::FrogPilotAnnotatedCameraWidget(QWidget *parent) : QWidget(parent) {
   animationTimer = new QTimer(this);
@@ -241,6 +243,13 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   // the pling rather than appearing with it.
   int warnAt = frogpilot_toggles.value("speed_bump_alert_distance").toInt();
   float bumpMetres = frogpilotPlan.getNextSpeedBumpDistance();
+  // To where the bump starts (mapd's distance is to its middle) and to the roundabout's give-way line
+  float approachDistance = frogpilot_toggles.value("speed_bump_approach_icon_distance").toDouble();
+  float bumpStart = mapdOut.getNextSpeedBumpDistance() - std::max(mapdOut.getNextSpeedBumpLength(), 0.0f) / 2.0f;
+  approachBumpMetres = (mapdOut.getHasNextSpeedBump() && bumpStart <= approachDistance) ? std::max(bumpStart, 0.0f) : -1.0f;
+  approachRoundaboutMetres = (mapdOut.getHasNextRoundabout() && mapdOut.getNextRoundaboutDistance() <= approachDistance)
+    ? std::max(mapdOut.getNextRoundaboutDistance(), 0.0f) : -1.0f;
+
   speedBumpWarningStr = (frogpilotPlan.getHasNextSpeedBump() && bumpMetres <= warnAt * 1.5f)
     ? tr("SPEED BUMP")
     : QString();
@@ -379,6 +388,10 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     paintSpeedBumpAreaCount(p);
   }
 
+  if (frogpilot_toggles.value("speed_bump_approach_icon").toBool()) {
+    paintApproachIcons(p);
+  }
+
   if (frogpilot_toggles.value("dm_awareness_bar").toBool()) {
     paintDriverAwareness(p);
   }
@@ -388,6 +401,11 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
     paintSpeedLimit(p);
   } else {
     speedLimitHeight = 0;
+  }
+
+  speedSignsBottom = setSpeedRect.bottom();
+  if (speedLimitHeight > 0 && !speedLimitRect.isEmpty()) {
+    speedSignsBottom = std::max(speedSignsBottom, speedLimitRect.bottom());
   }
 
   if (frogpilot_toggles.value("speed_limit_sources").toBool()) {
@@ -1047,6 +1065,88 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedBumpWarning(QPainter &p) {
   p.restore();
 }
 
+void FrogPilotAnnotatedCameraWidget::paintApproachIcons(QPainter &p) {
+  if ((approachBumpMetres < 0 && approachRoundaboutMetres < 0) || setSpeedRect.isEmpty()) {
+    return;
+  }
+  // Blink at ~1.25 Hz: on 400 ms, off 400 ms
+  if ((QDateTime::currentMSecsSinceEpoch() / 400) % 2 == 1) {
+    return;
+  }
+
+  p.save();
+  p.setRenderHint(QPainter::Antialiasing);
+
+  const int size = 120;
+  const int gap = UI_BORDER_SIZE / 2;
+  int count = (approachBumpMetres >= 0 ? 1 : 0) + (approachRoundaboutMetres >= 0 ? 1 : 0);
+  int x = setSpeedRect.center().x() - (count * size + (count - 1) * gap) / 2;
+  int y = speedSignsBottom + UI_BORDER_SIZE;
+
+  auto drawDistance = [&](const QRect &icon, float metres) {
+    p.setFont(InterFont(36, QFont::Bold));
+    p.setPen(Qt::white);
+    p.drawText(QRect(icon.x() - 20, icon.bottom() + 4, icon.width() + 40, 44), Qt::AlignCenter, QString::number(std::lround(metres)) + " m");
+  };
+
+  if (approachBumpMetres >= 0) {
+    // Swedish warning sign: yellow triangle with a red border, and a bump on the road line
+    QRect icon(x, y, size, size);
+    QPolygonF triangle;
+    triangle << QPointF(icon.center().x(), icon.top() + 6) << QPointF(icon.right() - 4, icon.bottom() - 10) << QPointF(icon.left() + 4, icon.bottom() - 10);
+    p.setPen(QPen(QColor(200, 16, 46), 12, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.setBrush(QColor(255, 205, 0));
+    p.drawPolygon(triangle);
+
+    QPainterPath bump;
+    float base = icon.bottom() - 32;
+    bump.moveTo(icon.left() + 30, base);
+    bump.lineTo(icon.center().x() - 20, base);
+    bump.cubicTo(icon.center().x() - 12, base - 26, icon.center().x() + 12, base - 26, icon.center().x() + 20, base);
+    bump.lineTo(icon.right() - 30, base);
+    p.setPen(QPen(Qt::black, 7, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.setBrush(Qt::NoBrush);
+    p.drawPath(bump);
+
+    drawDistance(icon, approachBumpMetres);
+    x += size + gap;
+  }
+
+  if (approachRoundaboutMetres >= 0) {
+    // Swedish roundabout sign: blue disc with three white arrows going round anticlockwise, the way traffic does
+    QRect icon(x, y, size, size);
+    p.setPen(QPen(Qt::white, 4));
+    p.setBrush(QColor(0, 82, 147));
+    p.drawEllipse(icon.adjusted(4, 4, -4, -4));
+
+    QPointF centre = QRectF(icon).center();
+    float radius = size * 0.24f;
+    p.setPen(QPen(Qt::white, 9, Qt::SolidLine, Qt::FlatCap));
+    p.setBrush(Qt::white);
+    for (int i = 0; i < 3; ++i) {
+      float startDeg = 90.0f + i * 120.0f;
+      QRectF ring(centre.x() - radius, centre.y() - radius, 2 * radius, 2 * radius);
+      p.setBrush(Qt::NoBrush);
+      p.drawArc(ring, int(startDeg * 16), int(80 * 16));  // Qt angles run anticlockwise
+      // Arrowhead at the end of each arc, pointing along the direction of travel
+      float endRad = qDegreesToRadians(startDeg + 80.0f);
+      QPointF tip(centre.x() + radius * std::cos(endRad), centre.y() - radius * std::sin(endRad));
+      QPointF along(-std::sin(endRad), -std::cos(endRad));  // anticlockwise tangent, in screen coordinates (y down)
+      QPointF out(std::cos(endRad), -std::sin(endRad));
+      QPolygonF head;
+      head << tip + along * 14 << tip - out * 11 << tip + out * 11;
+      p.setPen(Qt::NoPen);
+      p.setBrush(Qt::white);
+      p.drawPolygon(head);
+      p.setPen(QPen(Qt::white, 9, Qt::SolidLine, Qt::FlatCap));
+    }
+
+    drawDistance(icon, approachRoundaboutMetres);
+  }
+
+  p.restore();
+}
+
 void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
   if (!dmAwarenessValid) {
     return;
@@ -1290,6 +1390,7 @@ void FrogPilotAnnotatedCameraWidget::paintSpeedLimitSources(QPainter &p) {
   QRect mapboxRect(mapDataRect.x(), mapDataRect.y() + mapDataRect.height() + UI_BORDER_SIZE / 2, 450, 60);
   QRect nextLimitRect(mapboxRect.x(), mapboxRect.y() + mapboxRect.height() + UI_BORDER_SIZE / 2, 450, 60);
 
+  speedSignsBottom = std::max(speedSignsBottom, nextLimitRect.bottom());
   drawSource(dashboardRect, dashboardIcon, "Dashboard", dashboardSpeedLimit * speedConversion);
   drawSource(mapDataRect, mapDataIcon, "Map Data", mapSpeedLimit * speedConversion);
   drawSource(mapboxRect, mapboxIcon, "Mapbox", mapboxSpeedLimit * speedConversion);

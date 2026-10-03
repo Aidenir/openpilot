@@ -148,6 +148,8 @@ struct FrogPilotOnroadEvent @0xa5cd762cd951a455 {
     speedBumpMarked @31;
     speedBumpMarkUndone @32;
     speedBumpMarkFailed @33;
+    speedBumpIgnored @34;
+    speedBumpIgnoreUndone @35;
   }
 }
 
@@ -421,4 +423,6 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   hasNextRoundabout @34 :Bool;
   nextRoundaboutDistance @35 :Float32;  # m along the road to where it meets the ring's centreline
   nextRoundaboutDiameter @36 :Float32;  # m, the ring's centreline; 0 for a mini roundabout or no roundabout
+  nextSpeedBumpSeverity @37 :Float32;  # 0 (barely felt) .. 1 (harsh), learned from IMU hits in this direction; -1 if not learned
+  nextSpeedBumpLearned @38 :Bool;  # nextSpeedBumpDistance/Length come from IMU hits rather than the map
 }

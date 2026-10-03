@@ -31,6 +31,7 @@ DEFAULT_THRESHOLD = 0.15  # rad/s of high-passed pitch rate
 MIN_SPEED = 1.5  # m/s; below this, parking manoeuvres and kerbs
 PEAK_WINDOW = 1.5  # s after the first crossing to look for the peak
 REFRACTORY = 2.5  # s after a trigger before another can start
+END_FRACTION = 0.6  # the rear wheels usually jolt less than the front, so the end of a bump is found at a lower level
 AZ_PP_BEFORE = 1.0  # s before the trigger included in the vertical accel peak-to-peak
 AZ_HISTORY = 4.0  # s of filtered vertical accel kept for that
 
@@ -41,6 +42,8 @@ class BumpEvent:
   pitch: float  # peak |high-passed pitch rate|, rad/s
   az_pp: float  # peak-to-peak high-passed vertical accel around the event, m/s^2
   v_ego: float  # speed when it triggered, m/s
+  first_t: float = 0.0  # first threshold crossing (front wheels on), same clock as "t"
+  last_t: float = 0.0  # last sample above END_FRACTION of the threshold within the window (rear wheels off)
 
 
 class CentredHighPass:
@@ -74,7 +77,7 @@ class SpeedBumpDetector:
 
     self.v_ego = 0.0
     self.refractory_until = float("-inf")
-    self.open = None  # [trigger time, peak time, peak value, speed at trigger]
+    self.open = None  # [trigger time, peak time, peak value, speed at trigger, last time above END_FRACTION]
 
   def set_speed(self, v_ego):
     self.v_ego = v_ego
@@ -97,23 +100,25 @@ class SpeedBumpDetector:
     if self.open is not None:
       if mag > self.open[2]:
         self.open[1], self.open[2] = tc, mag
+      if mag > self.threshold * END_FRACTION:
+        self.open[4] = tc
       if tc - self.open[0] >= PEAK_WINDOW:
         return self._close()
       return None
 
     if mag > self.threshold and self.v_ego > self.min_speed and tc >= self.refractory_until:
-      self.open = [tc, tc, mag, self.v_ego]
+      self.open = [tc, tc, mag, self.v_ego, tc]
       self.refractory_until = tc + REFRACTORY
     return None
 
   def _close(self):
-    t0, tp, peak, v = self.open
+    t0, tp, peak, v, t_last = self.open
     self.open = None
     window = [a for ta, a in self.az_recent if t0 - AZ_PP_BEFORE <= ta <= t0 + PEAK_WINDOW]
     az_pp = (max(window) - min(window)) if window else 0.0
     if az_pp < self.az_pp_floor:
       return None
-    return BumpEvent(t=tp, pitch=peak, az_pp=az_pp, v_ego=v)
+    return BumpEvent(t=tp, pitch=peak, az_pp=az_pp, v_ego=v, first_t=t0, last_t=t_last)
 
 
 REFINE_WINDOW = 10.0  # s either side of a mark's tap to look for the bump in
@@ -166,6 +171,7 @@ def main():
 
   threshold, promote_drives = settings()
   detect = params.get_bool("SpeedBumpDetect")
+  learn = params.get_bool("SpeedBumpLearn")
   detector = SpeedBumpDetector(threshold=threshold)
   last_settings_check = time.monotonic()
   last_id = 0
@@ -196,19 +202,26 @@ def main():
       t_sample = g.timestamp * 1e-9
       recent.append((t_sample, g.gyroUncalibrated.v[1], detector.v_ego))
       event = detector.add_gyro(t_sample, g.gyroUncalibrated.v[1])  # device y is pitch
-      if event is None or not detect:
+      # Every jolt goes to mapd while learning, so it can learn where known bumps really start and end and how harsh they are;
+      # only with "Detect speed bumps" on may one away from known bumps become a suggestion
+      if event is None or not (detect or learn):
         continue
       # The sample clock is time.monotonic (sensord converts to it), so the
       # event's age turns straight into a wall-clock time mapd can back-project from.
-      event_ms = int(time.time() * 1000 - (time.monotonic() - event.t) * 1000)  # noqa: TID251
+      wall_offset_ms = time.time() * 1000 - time.monotonic() * 1000  # noqa: TID251
+      event_ms = int(wall_offset_ms + event.t * 1000)
       last_id = max(event_ms, last_id + 1)
       params_memory.put("SpeedBumpSuggestRequest", {
         "id": last_id,
         "eventMs": event_ms,
+        "firstMs": int(wall_offset_ms + event.first_t * 1000),
+        "lastMs": int(wall_offset_ms + event.last_t * 1000),
         "pitch": round(event.pitch, 4),
         "azpp": round(event.az_pp, 3),
         "vEgo": round(event.v_ego, 2),
         "promoteDrives": promote_drives,
+        "suggest": detect,
+        "learn": learn,
       })
 
     now = time.monotonic()
@@ -245,6 +258,7 @@ def main():
       threshold, promote_drives = settings()
       detector.threshold = threshold
       detect = params.get_bool("SpeedBumpDetect")
+      learn = params.get_bool("SpeedBumpLearn")
 
     rk.keep_time()
 

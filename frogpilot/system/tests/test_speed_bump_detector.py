@@ -155,3 +155,12 @@ def test_refine_on_recorded_bump_tapped_late():
   bump_t = float(d["bump_event_t"])
   found = find_bump_near(s, tap_t=bump_t + 6.0)
   assert found is not None and abs(found[0] - bump_t) < 0.5
+
+
+def test_event_reports_where_the_bump_starts_and_ends():
+  # A bump and the smaller rear-wheel jolt 0.5 s later: the event spans both
+  events = run(lambda t: bump_pulse(t, 102.0, 0.3) + bump_pulse(t, 102.5, 0.15), 6.0)
+  assert len(events) == 1
+  e = events[0]
+  assert e.first_t <= e.t <= e.last_t
+  assert e.first_t < 102.0 and e.last_t > 102.4

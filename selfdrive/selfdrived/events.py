@@ -1228,6 +1228,22 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.LOW, VisualAlert.none, AudibleAlert.warningSoft, 3.),
   },
 
+  FrogPilotEventName.speedBumpIgnored: {
+    ET.PERMANENT: Alert(
+      "Speed bump ignored",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
+  },
+
+  FrogPilotEventName.speedBumpIgnoreUndone: {
+    ET.PERMANENT: Alert(
+      "Speed bump no longer ignored",
+      "",
+      FrogPilotAlertStatus.frogpilot, AlertSize.small,
+      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
+  },
+
   FrogPilotEventName.massageReminder: {
     ET.PERMANENT: Alert(
       "Glöm inte massagen",

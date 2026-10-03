@@ -53,6 +53,10 @@ class FrogPilotEvents:
       if request.get("id") == result_id and request.get("source") == "wheel":
         if not result.get("ok"):
           self.events.add(FrogPilotEventName.speedBumpMarkFailed)
+        elif result.get("action") == "undo" and result.get("message") == "Bump ignored":
+          self.events.add(FrogPilotEventName.speedBumpIgnored)
+        elif result.get("action") == "undo" and result.get("message") == "Ignore undone":
+          self.events.add(FrogPilotEventName.speedBumpIgnoreUndone)
         elif result.get("action") == "undo":
           self.events.add(FrogPilotEventName.speedBumpMarkUndone)
         else:

@@ -558,6 +558,10 @@ class FrogPilotVariables:
     toggle.speed_bump_ui = self.get_value("SpeedBumpUI")
     toggle.user_speed_bump_button = self.get_value("UserSpeedBumpButton")
     toggle.speed_bump_mark_one_way = self.get_value("SpeedBumpMarkOneWay")
+    toggle.speed_bump_learn = self.get_value("SpeedBumpLearn")
+    toggle.speed_bump_approach_icon = self.get_value("SpeedBumpApproachIcon")
+    toggle.speed_bump_approach_icon_distance = self.get_value("SpeedBumpApproachIconDistance", cast=int, condition=toggle.speed_bump_approach_icon,
+                                                              default=50, min=10, max=200)
     toggle.speed_bump_detect = self.get_value("SpeedBumpDetect")
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
     toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
@@ -570,6 +574,9 @@ class FrogPilotVariables:
                                                       default=20.0, min=5.0, max=50.0) * CV.KPH_TO_MS
     toggle.speed_bump_slowdown_time = self.get_value("SpeedBumpSlowdownTime", cast=float, condition=toggle.speed_bump_slowdown, default=3.0, min=0.5, max=5.0)
     toggle.speed_bump_slowdown_strict = self.get_value("SpeedBumpSlowdownStrict", condition=toggle.speed_bump_slowdown)
+    # km/h; used in m/s
+    toggle.speed_bump_mild_extra_speed = self.get_value("SpeedBumpMildExtraSpeed", cast=float, condition=toggle.speed_bump_slowdown,
+                                                        default=10.0, min=0.0, max=30.0) * CV.KPH_TO_MS
     toggle.speed_bump_slowdown_cem_delay = self.get_value("SpeedBumpSlowdownCEMDelay", cast=float, condition=toggle.speed_bump_slowdown,
                                                           default=3.0, min=0.0, max=10.0)
     toggle.speed_bump_slowdown_table_length = self.get_value("SpeedBumpSlowdownTableLength", cast=float, condition=toggle.speed_bump_slowdown,

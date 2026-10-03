@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -60,6 +60,7 @@ class SpeedBumpConfig:
   margin: float = 2.0         # m, be at "v_target" this far before the bump's start (its middle if its length is unknown)
   hold_distance: float = 6.0  # m, keep "v_target" until this far past the end of the bump (its middle if its length is unknown)
   jerk_scale: float = 1.0     # scales the comfort jerk envelope; lower is a softer ramp in and out
+  mild_extra: float = 0.0     # m/s added to "v_target" for a bump learned to be barely felt, scaled down to 0 for a harsh one
   ease_decel: float = EASE_DECEL  # m/s^2, the approach envelope's deceleration (see EASE_DECEL); 0 turns it off
 
 DEFAULT_CONFIG = SpeedBumpConfig()
@@ -123,6 +124,7 @@ class SpeedBumpController:
     # with the bump it belongs to, since mapd reports the next bump's length as soon as this one's middle is crossed
     self.tracked_distance = None
     self.tracked_length = 0.0
+    self.tracked_severity = -1.0  # learned from driving over it, -1 if not
     self.confirmed_samples = 0
     self.unseen_time = 0.0
 
@@ -130,6 +132,7 @@ class SpeedBumpController:
     # bumps in quick succession are chained without a gap in the cap
     self.pending_distance = None
     self.pending_length = 0.0
+    self.pending_severity = -1.0
     self.pending_samples = 0
 
     # The bump we last finished holding for. mapd dead-reckons between position fixes and clamps a
@@ -158,11 +161,13 @@ class SpeedBumpController:
 
     self.tracked_distance = self.pending_distance
     self.tracked_length = self.pending_length
+    self.tracked_severity = self.pending_severity
     self.confirmed_samples = self.pending_samples
     self.unseen_time = 0.0
 
     self.pending_distance = None
     self.pending_length = 0.0
+    self.pending_severity = -1.0
     self.pending_samples = 0
 
     self.new_bump()
@@ -180,7 +185,7 @@ class SpeedBumpController:
     # Either where the dead-reckoned passed bump is, or mapd's clamped "0" for it however far past it we are
     return self.passed_distance is not None and (distance <= self.passed_distance + SAME_BUMP_TOLERANCE or distance <= CLAMPED_DISTANCE)
 
-  def track(self, has_bump, distance, v_ego, dt=DT_MDL, length=0.0):
+  def track(self, has_bump, distance, v_ego, dt=DT_MDL, length=0.0, severity=-1.0):
     # Dead-reckon the bumps we know of, so short dropouts, a frozen mapd distance, and the moment mapd
     # moves on to the next bump after we cross this one don't make us lose it
     if self.tracked_distance is not None:
@@ -200,6 +205,7 @@ class SpeedBumpController:
         # Same bump; trust whichever is closer so a lagging mapd can only make us slow down earlier, not later
         self.tracked_distance = min(distance, self.tracked_distance)
         self.tracked_length = length
+        self.tracked_severity = severity
         self.confirmed_samples += 1
         self.unseen_time = 0.0
       elif committed and distance > self.tracked_distance:
@@ -213,6 +219,7 @@ class SpeedBumpController:
           self.pending_distance = distance
           self.pending_samples = 1
         self.pending_length = length
+        self.pending_severity = severity
       elif self.is_passed_bump(distance):
         # mapd still reporting the bump we've already crossed
         if self.tracked_distance is not None:
@@ -221,6 +228,7 @@ class SpeedBumpController:
         # A new (or re-placed) bump; it has to be seen consistently before it's acted on
         self.tracked_distance = distance
         self.tracked_length = length
+        self.tracked_severity = severity
         self.confirmed_samples = 1
         self.unseen_time = 0.0
         self.pending_distance = None
@@ -235,11 +243,12 @@ class SpeedBumpController:
     if self.tracked_distance is not None and self.tracked_distance < -self.hold_end:
       self.forget()
 
-  def update(self, active, has_bump, distance, v_ego, config, dt=DT_MDL, length=0.0):
+  def update(self, active, has_bump, distance, v_ego, config, dt=DT_MDL, length=0.0, severity=-1.0):
     """"distance" is mapd's distance to the middle of the next bump and "length" its length along the road (0 if
-    unknown), so braking aims for the bump's start, "length / 2" before the middle, and holds until it's crossed."""
+    unknown), so braking aims for the bump's start, "length / 2" before the middle, and holds until it's crossed.
+    "severity" is how harsh it was learned to be from driving over it (0..1, -1 if not learned)."""
     length = max(0.0, length) if has_bump else 0.0
-    target, decel = self.update_bump(active, has_bump, distance - length / 2, v_ego, config, dt, length)
+    target, decel = self.update_bump(active, has_bump, distance - length / 2, v_ego, config, dt, length, severity)
     if target is not None and self.release_cap is not None and target > self.release_cap:
       # The next bump's envelope (or braking) has taken over from a gentle pull-away, but sits above where the pull-away had got
       # to: keep raising the pull-away cap until the envelope comes down to it, rather than letting the car surge up to it
@@ -264,7 +273,13 @@ class SpeedBumpController:
     self.target = target
     return target, decel
 
-  def update_bump(self, active, has_bump, distance, v_ego, config, dt=DT_MDL, length=0.0):
+  def bump_config(self, config):
+    """A bump learned to be barely felt is taken up to "mild_extra" faster, scaled down to the normal bump speed for a harsh one"""
+    if self.tracked_severity < 0 or config.mild_extra <= 0:
+      return config
+    return replace(config, v_target=config.v_target + config.mild_extra * (1.0 - min(1.0, self.tracked_severity)), mild_extra=0.0)
+
+  def update_bump(self, active, has_bump, distance, v_ego, config, dt=DT_MDL, length=0.0, severity=-1.0):
     """Returns (speed cap in m/s or None, requested deceleration in m/s^2 or 0.0).
 
     Nothing happens until the car is "brake_time" seconds (at its current speed) from the bump, or, unless strict,
@@ -274,7 +289,9 @@ class SpeedBumpController:
     jerk-limited both ways, easing off as the speed nears "v_target" so it lands on it rather than dipping below.
     The cap is held until "hold_distance" past the end of the bump."""
     self.hold_distance = config.hold_distance
-    self.track(has_bump, distance, v_ego, dt, length)
+    self.track(has_bump, distance, v_ego, dt, length, severity)
+    # The severity (like the length) is kept with the bump it was learned for, so it is applied after tracking
+    config = self.bump_config(config)
 
     previous_decel = self.decel
     self.decel = 0.0

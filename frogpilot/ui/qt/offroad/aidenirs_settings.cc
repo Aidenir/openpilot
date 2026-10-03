@@ -81,6 +81,24 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "the road, like a cushion in one lane. Off by default: a marked bump counts in both directions. The direction is recorded either way."),
      ""},
 
+    {"SpeedBumpLearn",
+     tr("Learn Speed Bumps From Driving Over Them"),
+     tr("<b>Use the car's motion sensors each time you drive over a known bump to learn where it really starts and ends, and how harsh it is.</b> "
+        "Once a bump has been felt in the same place twice, braking aims for where it was felt instead of where the map puts it, separately for "
+        "each direction. Long tables and bumps the map places a few metres off are corrected this way."),
+     ""},
+
+    {"SpeedBumpApproachIcon",
+     tr("Speed Bump And Roundabout Icons"),
+     tr("<b>Blink a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
+     ""},
+
+    {"SpeedBumpApproachIconDistance",
+     tr("Speed Bump And Roundabout Icon Distance"),
+     tr("<b>How far before a speed bump or roundabout its icon starts blinking.</b> Measured to where the bump starts, or to the "
+        "roundabout's give-way line."),
+     ""},
+
     {"SpeedBumpDetect",
      tr("Learn Unmapped Speed Bumps"),
      tr("<b>Notice bumps the map is missing from how the car pitches over them.</b> Each one is only a suggestion until it has been "
@@ -164,6 +182,13 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "over the bump and pulled away slowly. Only the speed condition is held off: leads, curves and stop lights still switch it on."),
      ""},
 
+    {"SpeedBumpMildExtraSpeed",
+     tr("Speed Bump Extra Speed For Mild Bumps"),
+     tr("<b>How much faster than the \"Speed Bump Speed\" to take a bump that has been learned to be barely felt.</b> It is scaled down "
+        "the harsher the bump was felt to be, to no extra speed for a harsh one. Only bumps learned from driving over them (\"Learn Speed Bumps "
+        "From Driving Over Them\") are affected. Set to 0 to always use the \"Speed Bump Speed\"."),
+     ""},
+
     {"SpeedBumpSlowdownTableLength",
      tr("Speed Bump Table Length"),
      tr("<b>How long a raised table (a long flat-topped bump, often a raised crossing) is, when the map doesn't say.</b> "
@@ -214,6 +239,12 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     } else if (param == "SpeedBumpSlowdownCEMDelay") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" seconds"), std::map<float, QString>(), 0.5);
+
+    } else if (param == "SpeedBumpMildExtraSpeed") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 30, tr(" km/h"), std::map<float, QString>(), 1);
+
+    } else if (param == "SpeedBumpApproachIconDistance") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 10, 200, tr(" meters"), std::map<float, QString>(), 10);
 
     } else if (param == "SpeedBumpSlowdownTableLength") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 40, tr(" meters"), std::map<float, QString>(), 1);
