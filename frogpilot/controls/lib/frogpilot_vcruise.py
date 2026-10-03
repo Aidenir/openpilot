@@ -89,8 +89,14 @@ class FrogPilotVCruise:
 
     # Red lights and stop signs. Like the speed bumps below, it only ever lowers the cruise speed, and the deceleration it asks
     # for ("self.rlc.decel") goes out in frogpilotPlan.speedBumpDecel (see frogpilot_planner)
+    mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
+    slowdowns = []
+    if mapd_alive and sm["mapdOut"].hasNextSpeedBump:
+      slowdowns.append(sm["mapdOut"].nextSpeedBumpDistance)
+    if mapd_alive and sm["mapdOut"].hasNextRoundabout:
+      slowdowns.append(sm["mapdOut"].nextRoundaboutDistance - ENTRY_OFFSET)
     stop_target, _ = self.rlc.update(long_control_active, stop_wanted and not self.override_force_stop, sm["modelV2"].position.x,
-                                     sm["modelV2"].velocity.x, v_ego, self.speed_bump_config(frogpilot_toggles))
+                                     sm["modelV2"].velocity.x, v_ego, self.speed_bump_config(frogpilot_toggles), slowdowns=slowdowns)
     if stop_target is not None:
       v_cruise = min(v_cruise, stop_target)
 
@@ -101,7 +107,6 @@ class FrogPilotVCruise:
     # set below "CRUISING_SPEED", and it only ever lowers the cruise speed, so it's safe on top of a force stop.
     # The deceleration it asks for ("self.sbc.decel") is published in frogpilotPlan.speedBumpDecel
     if frogpilot_toggles.speed_bump_slowdown:
-      mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
       has_bump = mapd_alive and sm["mapdOut"].hasNextSpeedBump
       bump_distance = sm["mapdOut"].nextSpeedBumpDistance if mapd_alive else 0.0
       # mapd's distance is to the bump's middle. Raised tables can be tens of metres long, so brake for where it starts: the length
