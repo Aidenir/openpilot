@@ -425,4 +425,7 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   nextRoundaboutDiameter @36 :Float32;  # m, the ring's centreline; 0 for a mini roundabout or no roundabout
   nextSpeedBumpSeverity @37 :Float32;  # 0 (barely felt) .. 1 (harsh), learned from IMU hits in this direction; -1 if not learned
   nextSpeedBumpLearned @38 :Bool;  # nextSpeedBumpDistance/Length come from IMU hits rather than the map
+  hasNextTrafficSignal @39 :Bool;
+  nextTrafficSignalDistance @40 :Float32;  # m along the road to the next traffic signal or stop sign facing this way
+  nextTrafficSignalType @41 :Text;  # "signal" or "stop", "" if none
 }

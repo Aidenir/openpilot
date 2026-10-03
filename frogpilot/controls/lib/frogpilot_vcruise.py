@@ -95,8 +95,10 @@ class FrogPilotVCruise:
       slowdowns.append(sm["mapdOut"].nextSpeedBumpDistance)
     if mapd_alive and sm["mapdOut"].hasNextRoundabout:
       slowdowns.append(sm["mapdOut"].nextRoundaboutDistance - ENTRY_OFFSET)
+    signal = sm["mapdOut"].nextTrafficSignalDistance if mapd_alive and sm["mapdOut"].hasNextTrafficSignal else None
     stop_target, _ = self.rlc.update(long_control_active, stop_wanted and not self.override_force_stop, sm["modelV2"].position.x,
-                                     sm["modelV2"].velocity.x, v_ego, self.speed_bump_config(frogpilot_toggles), slowdowns=slowdowns)
+                                     sm["modelV2"].velocity.x, v_ego, self.speed_bump_config(frogpilot_toggles), slowdowns=slowdowns,
+                                     signal=signal)
     if stop_target is not None:
       v_cruise = min(v_cruise, stop_target)
 

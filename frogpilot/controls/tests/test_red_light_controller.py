@@ -4,8 +4,8 @@ import pytest
 from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
 from openpilot.frogpilot.controls.lib.red_light_controller import BRAKE_TIME, END_OFFSET, LOST_KEEP_DISTANCE, LOST_TIME, MARGIN, \
-                                                                   MAX_DECEL, RELEASE_TIME, SLOWING_SCALE, STOP_SPEED, \
-                                                                   RedLightController, model_stop_distance
+                                                                   MAX_DECEL, RELEASE_TIME, SIGNAL_OFFSET, SLOWING_SCALE, \
+                                                                   STOP_SPEED, RedLightController, model_stop_distance
 from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
@@ -179,3 +179,48 @@ class TestFalseStops:
     bump = LINE + CREEP - 3.0
     _, log = approach(40, plan=lambda x, v: creeping_plan(x, v) if x < bump else cruising_plan(v), slowdowns=[bump])
     assert all(cap is None and decel == 0.0 for _, _, cap, decel, _ in log)
+
+
+class TestMappedSignals:
+  def run(self, plan, signal_at):
+    rlc = RedLightController()
+    v, x, a, log = 40 * CV.KPH_TO_MS, 0.0, 0.0, []
+    for _ in range(int(30 / DT_MDL)):
+      position, velocity = plan(x, v)
+      signal = None if signal_at is None or signal_at - x < 0 else signal_at - x
+      cap, decel = rlc.update(True, True, position, velocity, v, CFG, signal=signal)
+      v_cruise = 40 * CV.KPH_TO_MS if cap is None else min(40 * CV.KPH_TO_MS, cap)
+      a_target = max(-1.2, min(1.2, (v_cruise - v) / 0.5))
+      if decel > 0:
+        a_target = min(a_target, -decel)
+      a += (a_target - a) * DT_MDL / 0.3
+      v = max(0.0, v + a * DT_MDL)
+      x += v * DT_MDL
+      log.append((x, v, rlc.stop_distance, decel))
+    return log
+
+  @staticmethod
+  def noisy_plan(x, v):
+    # Far out the model's stop point is 25% long, close in it is right (CREEP past the line, like creeping_plan)
+    remaining = LINE - x
+    return stopping_plan(v, remaining * (1.25 if remaining > 30.0 else 1.0) + CREEP)
+
+  def test_a_mapped_signal_places_the_stop_far_out(self):
+    signal = LINE + MARGIN + SIGNAL_OFFSET  # where the map has the light, for a stop at LINE
+    with_map, without = self.run(self.noisy_plan, signal), self.run(self.noisy_plan, None)
+    def error_at(log, out):
+      x, _, stop, _ = next(r for r in log if LINE - r[0] <= out)
+      return stop - (LINE + MARGIN - x)
+    assert abs(error_at(with_map, 45.0)) < 1.0
+    assert abs(error_at(without, 45.0)) > 3.0
+    # Close in the model's own stop point is used, map or no map
+    assert with_map[-1][0] == pytest.approx(without[-1][0], abs=1.0)
+
+  def test_a_signal_far_from_the_models_stop_is_ignored(self):
+    # The model stops for something 40 m before the next mapped light: that light doesn't move the stop point
+    assert self.run(creeping_plan, LINE + 40.0)[-1][0] == pytest.approx(self.run(creeping_plan, None)[-1][0], abs=0.1)
+
+  def test_no_stop_from_the_map_alone(self):
+    # A mapped signal with a plan that doesn't stop (the light is green) brakes for nothing
+    log = self.run(lambda x, v: cruising_plan(v), LINE)
+    assert all(stop is None and decel == 0 for _, _, stop, decel in log)

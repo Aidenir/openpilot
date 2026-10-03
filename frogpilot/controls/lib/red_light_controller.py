@@ -31,6 +31,12 @@ LOST_TIME = 1.5          # s without a planned stop after which a stop point sti
 LOST_KEEP_DISTANCE = 20.0  # m gaps of up to 1.3 s (one of 3.2 s 90-60 m out), a bump and a roundabout 7 s (drive 275, Lorensborgsgatan)
 EXPLAINED_BEFORE = 8.0   # m, a planned stop this far before a mapped bump or roundabout entry, or EXPLAINED_AFTER past it, is for
 EXPLAINED_AFTER = 15.0   # m   that, not a light
+SIGNAL_OFFSET = 1.0      # m before a mapped traffic signal or stop sign that the stop point is put when one is near the model's (MARGIN
+                         # comes off too): drive 275's red lights were stopped 1-6 m before the signal's node, ~3.5 m on average
+SIGNAL_NEAR = 25.0       # m, closer than this the model's own stop point is used: OpenStreetMap puts signals 1-6 m past where drivers
+                         # stopped, no better than the model this close in, which far out it is 15-25% out
+SIGNAL_WINDOW = 15.0     # m, how near the model's stop point a mapped signal has to be for it to be used, or SIGNAL_WINDOW_SHARE of its
+SIGNAL_WINDOW_SHARE = 0.35  # distance if that is more: far out the model's stop point is 15-25% out either way
 SHRINK_TIME = 0.5        # s, time constant the stop point follows that median closer with: a red light found late needs braking at once
 GROW_TIME = 2.0          # s, and further away with. It was 5 s, so one early short plan held the stop point short for most of the
                          # approach (drive 275, Eriksfältsgatan: 49 m for a stop 65 m out)
@@ -90,9 +96,10 @@ class RedLightController(SpeedBumpController):
     self.tracked_severity = -1.0
     self.confirmed_samples = CONFIRM_SAMPLES
 
-  def update(self, active, stop_wanted, position_x, velocity_x, v_ego, config, dt=DT_MDL, slowdowns=()):
+  def update(self, active, stop_wanted, position_x, velocity_x, v_ego, config, dt=DT_MDL, slowdowns=(), signal=None):
     """"stop_wanted": a red light or stop sign is being stopped for. "position_x" and "velocity_x" are the model's plan.
     "slowdowns": distances (m) to mapped speed bumps and roundabout entries ahead, which the model slows for too.
+    "signal": distance (m) to the next mapped traffic signal or stop sign facing this way, None if none (or no map).
     Returns (speed cap in m/s or None, requested deceleration in m/s^2 or 0.0)."""
     if self.stop_distance is not None:
       self.stop_distance -= v_ego * dt
@@ -107,6 +114,13 @@ class RedLightController(SpeedBumpController):
         # The model is stopping for a mapped bump or roundabout, which have their own slowdown (drive 275, Lorensborgsgatan: braked
         # at 1.3 m/s^2 for a bump and a roundabout with no light there)
         estimate = None
+      if estimate is not None and signal is not None:
+        # The model is stopping near a mapped signal or stop sign: that places the stop far better than the model can from far out.
+        # The map only ever helps: with no signal mapped (OpenStreetMap has Ystadvägen x Heleneholmsstigen's lights as an
+        # uncontrolled crossing) the model's stop point is used as it is
+        anchored = max(0.0, signal - SIGNAL_OFFSET)
+        if anchored > SIGNAL_NEAR and abs(estimate - anchored) <= max(SIGNAL_WINDOW, SIGNAL_WINDOW_SHARE * anchored):
+          estimate = anchored
       self.estimates = (self.estimates + [estimate])[-max(1, round(MEDIAN_TIME / dt)):]
       self.missing_time = 0.0 if estimate is not None else self.missing_time + dt
 
