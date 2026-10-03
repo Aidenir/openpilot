@@ -209,6 +209,28 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "slower at high speed). Lower is smoother but needs an earlier braking point for the same result; higher is more abrupt."),
      ""},
 
+    {"RefugeIslandNudge",
+     tr("Keep Right Of Refuge Islands"),
+     tr("<b>Move the car over to the right for refuge islands in the middle of the road,</b> the kerbed islands where pedestrians cross, "
+        "often with a keep-right sign. openpilot otherwise keeps to the middle of the painted lane and passes them very close. "
+        "The car eases over a couple of seconds before the island and back after it. Only where there is room on the right, "
+        "not while you signal or turn, and you can always steer: holding the wheel to the left lets go of the island. "
+        "Uses <b>mapd</b> map data (islands mapped in OpenStreetMap) and the islands you mark with the \"Mark Refuge Island Button\". "
+        "Needs regenerated map tiles."),
+     ""},
+
+    {"RefugeIslandOffset",
+     tr("Refuge Island Distance"),
+     tr("<b>How far right of its usual line to take the car past a refuge island.</b> Less where the road edge doesn't leave room for it."),
+     ""},
+
+    {"UserRefugeIslandButton",
+     tr("Mark Refuge Island Button"),
+     tr("<b>Show an onroad button that marks a refuge island at the car's position,</b> for islands missing from the map. "
+        "Tap it level with the island and <b>mapd</b> saves it to \"user_refuge_islands.json\"; the car keeps right of it from then on, "
+        "in both directions. Hold the button to undo the last mark."),
+     ""},
+
     {"SpeedBumpTileCountUI",
      tr("Speed Bump Tile Count (Debug)"),
      tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
@@ -254,6 +276,14 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     } else if (param == "SpeedBumpSlowdownJerk") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.5, 2, tr("x"), std::map<float, QString>(), 0.1);
+
+    } else if (param == "RefugeIslandOffset") {
+      aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.1, 0.8, tr(" meters"), std::map<float, QString>(), 0.05);
+
+    } else if (param == "RefugeIslandNudge") {
+      ParamControl *nudgeToggle = new ParamControl(param, title, desc, icon);
+      QObject::connect(nudgeToggle, &ToggleControl::toggleFlipped, this, &AidenirsSettingsPanel::updateToggles);
+      aidenirsToggle = nudgeToggle;
 
     } else if (param == "SpeedBumpDetectThreshold") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.08, 0.4, tr(" rad/s"), std::map<float, QString>(), 0.01);
@@ -341,6 +371,8 @@ void AidenirsSettingsPanel::updateToggles() {
 
     if (key == "SpeedBumpDetectThreshold" || key == "SpeedBumpDetectPromoteDrives") {
       setVisible &= params.getBool("SpeedBumpDetect");
+    } else if (key == "RefugeIslandOffset") {
+      setVisible &= params.getBool("RefugeIslandNudge");
     } else if (key == "SpeedBumpSlowdown") {
       setVisible &= parent->hasOpenpilotLongitudinal;
     } else if (speedBumpSlowdownKeys.contains(key)) {

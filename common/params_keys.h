@@ -115,6 +115,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"RecordAudioFeedback", {PERSISTENT, BOOL, "0"}},
     {"RecordFront", {PERSISTENT, BOOL}},
     {"RecordFrontLock", {PERSISTENT, BOOL}},  // for the internal fleet
+    {"RefugeIslandNudge", {PERSISTENT, BOOL, "0", "0", 1}},
+    {"RefugeIslandOffset", {PERSISTENT, FLOAT, "0.4", "0.4", 1}},
     {"SecOCKey", {PERSISTENT | DONT_LOG, STRING}},
     {"ShowDebugInfo", {PERSISTENT, BOOL}},
     {"RouteCount", {PERSISTENT, INT, "0"}},
@@ -502,6 +504,10 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"UseKonikServer", {PERSISTENT, BOOL, "0", "0", 2}},
     {"UseSI", {PERSISTENT, BOOL, "1", "1", 3}},
     {"UseVienna", {PERSISTENT, BOOL, "0", "0", 1}},
+    {"UserRefugeIslandButton", {PERSISTENT, BOOL, "0", "0", 1}},
+    // Memory params shared with mapd, like UserSpeedBumpRequest/Result
+    {"UserRefugeIslandRequest", {CLEAR_ON_MANAGER_START, JSON}},
+    {"UserRefugeIslandResult", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserSpeedBumpButton", {PERSISTENT, BOOL, "0", "0", 1}},
     // Memory params (Params(memory=True)) shared with mapd: the UI writes the request, mapd the result
     {"UserSpeedBumpRequest", {CLEAR_ON_MANAGER_START, JSON}},

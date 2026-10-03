@@ -3,6 +3,7 @@ import json
 import time
 
 import cereal.messaging as messaging
+from cereal import log
 
 from openpilot.common.constants import CV
 from openpilot.common.filter_simple import FirstOrderFilter
@@ -21,6 +22,7 @@ from openpilot.frogpilot.controls.lib.frogpilot_events import FrogPilotEvents
 from openpilot.frogpilot.controls.lib.frogpilot_following import FrogPilotFollowing
 from openpilot.frogpilot.controls.lib.frogpilot_traffic import FrogPilotTraffic
 from openpilot.frogpilot.controls.lib.frogpilot_vcruise import FrogPilotVCruise
+from openpilot.frogpilot.controls.lib.refuge_island_controller import RefugeIslandController
 from openpilot.frogpilot.controls.lib.weather_checker import WeatherChecker
 
 class FrogPilotPlanner:
@@ -35,6 +37,7 @@ class FrogPilotPlanner:
     self.frogpilot_traffic = FrogPilotTraffic()
     self.frogpilot_vcruise = FrogPilotVCruise(self)
     self.frogpilot_weather = WeatherChecker(self)
+    self.refuge_island_controller = RefugeIslandController()
 
     self.driving_in_curve = False
     self.gps_valid = False
@@ -152,6 +155,15 @@ class FrogPilotPlanner:
       requests.append(self.frogpilot_vcruise.rlc.decel)
     self.speed_bump_decel = max(requests) if long_control_active and not sm["frogpilotCarState"].forceCoast else 0.0
 
+    # Keeping right of refuge islands mapd reports ahead; the curvature is added to the model's in controlsd
+    mapd_alive = sm.alive["mapdOut"] and sm.valid["mapdOut"]
+    self.refuge_island_controller.update(frogpilot_toggles.refuge_island_nudge, sm["carControl"].latActive, v_ego,
+                                         mapd_alive and sm["mapdOut"].hasNextRefugeIsland, sm["mapdOut"].nextRefugeIslandDistance,
+                                         sm["modelV2"], sm["carState"].steeringPressed, sm["carState"].steeringTorque,
+                                         sm["carState"].leftBlinker or sm["carState"].rightBlinker,
+                                         sm["modelV2"].meta.laneChangeState != log.LaneChangeState.off,
+                                         sm["modelV2"].action.desiredCurvature, frogpilot_toggles.refuge_island_offset)
+
     if self.gps_valid and time_validated and frogpilot_toggles.weather_presets:
       self.frogpilot_weather.update_weather(now, frogpilot_toggles)
     else:
@@ -223,6 +235,8 @@ class FrogPilotPlanner:
     frogpilotPlan.tileLoaded = sm["mapdOut"].tileLoaded if mapd_alive else False
     frogpilotPlan.speedBumpDecel = float(self.speed_bump_decel)
     frogpilotPlan.gpsStatus = self.gps_status
+    frogpilotPlan.refugeIslandCurvature = self.refuge_island_controller.curvature
+    frogpilotPlan.refugeIslandOffset = self.refuge_island_controller.offset
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed

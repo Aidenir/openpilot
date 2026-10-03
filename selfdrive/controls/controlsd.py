@@ -138,6 +138,9 @@ class Controls:
     # Steering PID loop and lateral MPC
     # Reset desired curvature to current to avoid violating the limits on engage
     new_desired_curvature = model_v2.action.desiredCurvature if CC.latActive else self.curvature
+    # FrogPilot: keeping right of a refuge island (frogpilot/controls/lib/refuge_island_controller.py)
+    if CC.latActive and self.sm.alive['frogpilotPlan']:
+      new_desired_curvature += self.sm['frogpilotPlan'].refugeIslandCurvature
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
     lat_delay = self.sm["liveDelay"].lateralDelay + LAT_SMOOTH_SECONDS
 

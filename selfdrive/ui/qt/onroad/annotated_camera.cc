@@ -28,6 +28,9 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
   speed_bump_mark_btn = new SpeedBumpMarkButton(this);
   speed_bump_mark_btn->setVisible(false);
 
+  refuge_island_mark_btn = new RefugeIslandMarkButton(this);
+  refuge_island_mark_btn->setVisible(false);
+
   gps_reboot_btn = new GpsRebootButton(this);
   gps_reboot_btn->setVisible(false);
 
@@ -64,6 +67,17 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
     int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - speed_bump_mark_btn->width() : UI_BORDER_SIZE * 2;
     speed_bump_mark_btn->move(x, height() * 0.55 - speed_bump_mark_btn->height() / 2);
     speed_bump_mark_btn->updateState(frogpilot_toggles.value("speed_bump_detect").toBool());
+  }
+
+  // Under the speed bump button, or in its place when that is off
+  bool refuge_island_mark_btn_enabled = frogpilot_toggles.value("user_refuge_island_button").toBool();
+  refuge_island_mark_btn->setVisible(refuge_island_mark_btn_enabled);
+  if (refuge_island_mark_btn_enabled) {
+    int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - refuge_island_mark_btn->width() : UI_BORDER_SIZE * 2;
+    int y = speed_bump_mark_btn_enabled ? speed_bump_mark_btn->y() + speed_bump_mark_btn->height() + UI_BORDER_SIZE
+                                        : height() * 0.55 - refuge_island_mark_btn->height() / 2;
+    refuge_island_mark_btn->move(x, y);
+    refuge_island_mark_btn->updateState();
   }
 
   // Across from the speed bump button, on the passenger's side

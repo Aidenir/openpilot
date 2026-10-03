@@ -72,6 +72,42 @@ private:
   QTimer *holdTimer;
 };
 
+// Marks a refuge island (a kerbed island in the middle of the road) at the car's position, for islands missing from the map,
+// the way SpeedBumpMarkButton marks bumps: a tap asks mapd to record one, holding for UNDO_HOLD_MS to remove the last one.
+// openpilot keeps right of the islands mapd knows about ("Keep Right Of Refuge Islands")
+class RefugeIslandMarkButton : public QPushButton {
+  Q_OBJECT
+
+public:
+  explicit RefugeIslandMarkButton(QWidget *parent = 0);
+
+  void updateState();
+
+  static constexpr int UNDO_HOLD_MS = SpeedBumpMarkButton::UNDO_HOLD_MS;
+
+private:
+  void paintEvent(QPaintEvent *event) override;
+  void sendRequest(const QString &action, qint64 tapMs);
+  void showFeedback(const QString &title, const QString &detail, const QColor &color, int durationMs);
+
+  bool holdFired = false;
+
+  qint64 feedbackUntil = 0;
+  qint64 lastRequestId = 0;
+  qint64 pendingId = 0;
+  qint64 pendingSince = 0;
+  qint64 pressMs = 0;
+
+  Params params_memory{"", true};
+
+  QColor feedbackColor;
+
+  QString feedbackDetail;
+  QString feedbackTitle;
+  QString pendingAction;
+
+  QTimer *holdTimer;
+};
 
 // Shown with the "No GPS Signal" alert. The modem's GPS sometimes stays silent for a whole drive (2026-10-02) and only a reboot
 // has been seen to bring it back. A tap asks for confirmation first, since rebooting drops openpilot until it is back up

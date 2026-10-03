@@ -198,6 +198,8 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   tileLoaded @41 :Bool;
   speedBumpDecel @42 :Float32;  # m/s^2, positive while braking for a speed bump, 0 otherwise
   gpsStatus @43 :UInt8;  # frogpilot/controls/lib/gps_status.py: 0 unknown, 1 no GPS, 2 searching, 3 weak fix, 4 good fix
+  refugeIslandCurvature @44 :Float32;  # 1/m, added to the model's desired curvature to keep right of a refuge island (right positive); 0 otherwise
+  refugeIslandOffset @45 :Float32;  # m, how far right of the model's line the car is being taken for a refuge island
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {
@@ -428,4 +430,6 @@ struct MapdOut @0xa4f1eb3323f5f582 {
   hasNextTrafficSignal @39 :Bool;
   nextTrafficSignalDistance @40 :Float32;  # m along the road to the next traffic signal or stop sign facing this way
   nextTrafficSignalType @41 :Text;  # "signal" or "stop", "" if none
+  hasNextRefugeIsland @42 :Bool;
+  nextRefugeIslandDistance @43 :Float32;  # m along the road to the next refuge island in the middle of the road
 }

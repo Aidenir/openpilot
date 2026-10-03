@@ -220,6 +220,114 @@ void SpeedBumpMarkButton::paintEvent(QPaintEvent *event) {
 }
 
 
+static const QColor ISLAND_COLOR(90, 180, 255);
+
+RefugeIslandMarkButton::RefugeIslandMarkButton(QWidget *parent) : QPushButton(parent) {
+  // As wide as the speed bump button, to sit under it, and a little lower to stay clear of the driver monitoring icon
+  setFixedSize(260, 130);
+
+  holdTimer = new QTimer(this);
+  holdTimer->setSingleShot(true);
+  holdTimer->setInterval(UNDO_HOLD_MS);
+
+  QObject::connect(holdTimer, &QTimer::timeout, [this] {
+    holdFired = true;
+    sendRequest("undo", QDateTime::currentMSecsSinceEpoch());
+  });
+  QObject::connect(this, &QPushButton::pressed, [this] {
+    // The press, not the release, is the moment the driver is level with the island
+    pressMs = QDateTime::currentMSecsSinceEpoch();
+    holdFired = false;
+    holdTimer->start();
+    update();
+  });
+  QObject::connect(this, &QPushButton::released, [this] {
+    holdTimer->stop();
+    if (!holdFired) {
+      sendRequest("mark", pressMs);
+    }
+    update();
+  });
+}
+
+void RefugeIslandMarkButton::sendRequest(const QString &action, qint64 tapMs) {
+  // Written by hand for the same reason as SpeedBumpMarkButton's: the integers must not turn into doubles
+  qint64 id = std::max(tapMs, lastRequestId + 1);
+  lastRequestId = id;
+
+  QString request = QString("{\"id\":%1,\"action\":\"%2\",\"tapMs\":%3,\"source\":\"screen\"}").arg(id).arg(action).arg(tapMs);
+  params_memory.put("UserRefugeIslandRequest", request.toStdString());
+
+  pendingId = id;
+  pendingAction = action;
+  pendingSince = QDateTime::currentMSecsSinceEpoch();
+  showFeedback(action == "undo" ? tr("UNDOING") : tr("MARKING"), QString(), ISLAND_COLOR, MARK_REPLY_TIMEOUT_MS + 500);
+}
+
+void RefugeIslandMarkButton::showFeedback(const QString &title, const QString &detail, const QColor &color, int durationMs) {
+  feedbackTitle = title;
+  feedbackDetail = detail;
+  feedbackColor = color;
+  feedbackUntil = QDateTime::currentMSecsSinceEpoch() + durationMs;
+  update();
+}
+
+void RefugeIslandMarkButton::updateState() {
+  qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+  if (pendingId != 0) {
+    QJsonObject result = QJsonDocument::fromJson(QByteArray::fromStdString(params_memory.get("UserRefugeIslandResult"))).object();
+    if (static_cast<qint64>(result.value("id").toDouble()) == pendingId) {
+      bool ok = result.value("ok").toBool();
+      QString message = result.value("message").toString();
+      int total = result.value("total").toInt();
+
+      if (!ok) {
+        showFeedback(tr("NOT SAVED"), message, QColor(255, 80, 80), 4000);
+      } else if (pendingAction == "undo") {
+        showFeedback(tr("UNDONE"), tr("%1 saved").arg(total), QColor(200, 200, 200), 2500);
+      } else {
+        showFeedback(message == "Already marked" ? tr("ALREADY\nMARKED") : tr("MARKED"), tr("hold to undo"), QColor(80, 220, 100), 4000);
+      }
+      pendingId = 0;
+    } else if (now - pendingSince > MARK_REPLY_TIMEOUT_MS) {
+      showFeedback(tr("NOT SAVED"), tr("no reply from mapd"), QColor(255, 80, 80), 4000);
+      pendingId = 0;
+    }
+  }
+
+  if (!feedbackTitle.isEmpty() && now > feedbackUntil) {
+    feedbackTitle.clear();
+    feedbackDetail.clear();
+    update();
+  }
+}
+
+void RefugeIslandMarkButton::paintEvent(QPaintEvent *event) {
+  QPainter p(this);
+  p.setRenderHint(QPainter::Antialiasing);
+
+  bool feedback = !feedbackTitle.isEmpty();
+  QColor color = feedback ? feedbackColor : ISLAND_COLOR;
+
+  QRect box = rect().adjusted(4, 4, -4, -4);
+  p.setBrush(isDown() ? QColor(60, 60, 60, 230) : QColor(0, 0, 0, 180));
+  p.setPen(QPen(color, 6));
+  p.drawRoundedRect(box, 30, 30);
+
+  p.setPen(color);
+  if (feedback && !feedbackDetail.isEmpty()) {
+    p.setFont(InterFont(feedbackTitle.contains('\n') ? 34 : 44, QFont::Bold));
+    p.drawText(box.adjusted(10, 6, -10, -50), Qt::AlignCenter, feedbackTitle);
+    p.setFont(InterFont(28, QFont::DemiBold));
+    p.drawText(box.adjusted(10, box.height() - 56, -10, -8), Qt::AlignCenter | Qt::TextWordWrap, feedbackDetail);
+  } else {
+    p.setFont(InterFont(44, QFont::Bold));
+    p.drawText(box, Qt::AlignCenter, feedback ? feedbackTitle : tr("MARK\nISLAND"));
+  }
+}
+
+
 static const QColor REBOOT_COLOR(255, 80, 80);
 
 GpsRebootButton::GpsRebootButton(QWidget *parent) : QPushButton(parent) {
