@@ -30,6 +30,9 @@ class FrogPilotCard:
     self.gap_counter = 0
     self.refuge_island_request_id = 0
     self.speed_limit_request_id = 0
+    self.sign_limit = 0.0          # m/s, the car's last sign recognition reading
+    self.sign_limit_since_ms = 0   # wall-clock ms it changed to that, about when the car passed the sign
+    self.mapping_limit_id = None   # the speed limit correction mapd is recording until the reading changes again
     self.speed_bump_request_id = 0
 
     self.travel_assist_menu = TravelAssistMenu()
@@ -81,25 +84,45 @@ class FrogPilotCard:
       "source": "wheel",
     })
 
-  def request_speed_limit(self, tap_ms, sign_limit):
-    # mapd makes "sign_limit" (m/s, 0 if no sign has been read) the limit of the road the car is on, or drops its correction if the
-    # map already agrees, and answers in UserSpeedLimitResult (shown by FrogPilotEvents)
+  def request_speed_limit(self, tap_ms):
+    # mapd makes the car's reading (m/s, 0 if no sign has been read) the limit from where the car was when the reading changed to it,
+    # the sign, and records it as the car drives on until track_sign_limit tells it the reading changed again. It answers in
+    # UserSpeedLimitResult (shown by FrogPilotEvents)
     self.speed_limit_request_id = max(tap_ms, self.speed_limit_request_id + 1)
     self.params_memory.put("UserSpeedLimitRequest", {
       "id": self.speed_limit_request_id,
+      "action": "set",
       "tapMs": tap_ms,
-      "speedMs": float(sign_limit),
+      "signMs": self.sign_limit_since_ms,
+      "speedMs": float(self.sign_limit),
     })
+    self.mapping_limit_id = self.speed_limit_request_id if self.sign_limit > 0 else None
+
+  def track_sign_limit(self, sign_limit, now_ms):
+    if sign_limit == self.sign_limit:
+      return
+    if self.mapping_limit_id is not None:
+      # The next sign: the correction being recorded ends here
+      self.speed_limit_request_id = max(now_ms, self.speed_limit_request_id + 1)
+      self.params_memory.put("UserSpeedLimitRequest", {
+        "id": self.speed_limit_request_id,
+        "action": "end",
+        "setId": self.mapping_limit_id,
+        "endMs": now_ms,
+      })
+      self.mapping_limit_id = None
+    self.sign_limit, self.sign_limit_since_ms = sign_limit, now_ms
 
   def update_travel_assist_menu(self, carState, frogpilotCarState):
     """Runs before the set speed and engagement logic see carState's button events, so the menu can take the cruise buttons"""
     now_ms = int(time.time() * 1000)  # noqa: TID251  mapd works in wall-clock milliseconds
+    self.track_sign_limit(frogpilotCarState.signSpeedLimit, now_ms)
     self.travel_assist_menu.sign_limit = frogpilotCarState.signSpeedLimit
     choice = self.travel_assist_menu.update(carState, frogpilotCarState.travelAssistPressed, now_ms)
     if choice == "refuge_island":
       self.request_refuge_island(self.travel_assist_menu.choice_ms)
     elif choice == "speed_limit":
-      self.request_speed_limit(self.travel_assist_menu.choice_ms, frogpilotCarState.signSpeedLimit)
+      self.request_speed_limit(self.travel_assist_menu.choice_ms)
 
   def handle_experimental_mode(self, sm, frogpilot_toggles):
     if frogpilot_toggles.conditional_experimental_mode:
