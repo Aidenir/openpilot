@@ -260,8 +260,10 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   float approachDistance = frogpilot_toggles.value("speed_bump_approach_icon_distance").toDouble();
   float bumpStart = mapdOut.getNextSpeedBumpDistance() - std::max(mapdOut.getNextSpeedBumpLength(), 0.0f) / 2.0f;
   approachBumpMetres = (mapdOut.getHasNextSpeedBump() && bumpStart <= approachDistance) ? std::max(bumpStart, 0.0f) : -1.0f;
-  approachRoundaboutMetres = (mapdOut.getHasNextRoundabout() && mapdOut.getNextRoundaboutDistance() <= approachDistance)
-    ? std::max(mapdOut.getNextRoundaboutDistance(), 0.0f) : -1.0f;
+  // mapd measures to the ring's line, the middle of the lane going round (it counted down to 0 a median 1 m from it on 14 passes,
+  // drives 27a-27e): the give-way line is ROUNDABOUT_ENTRY_OFFSET before it, where roundabout_controller slows the car down to
+  float roundaboutEntry = mapdOut.getNextRoundaboutDistance() - ROUNDABOUT_ENTRY_OFFSET;
+  approachRoundaboutMetres = (mapdOut.getHasNextRoundabout() && roundaboutEntry <= approachDistance) ? std::max(roundaboutEntry, 0.0f) : -1.0f;
 
   speedBumpWarningStr = (frogpilotPlan.getHasNextSpeedBump() && bumpMetres <= warnAt * 1.5f)
     ? tr("SPEED BUMP")
@@ -1133,34 +1135,34 @@ void FrogPilotAnnotatedCameraWidget::paintApproachIcons(QPainter &p) {
   if ((approachBumpMetres < 0 && approachRoundaboutMetres < 0) || setSpeedRect.isEmpty()) {
     return;
   }
-  // Blink at ~1.25 Hz: on 400 ms, off 400 ms
-  if ((QDateTime::currentMSecsSinceEpoch() / 400) % 2 == 1) {
-    return;
-  }
-
   p.save();
   p.setRenderHint(QPainter::Antialiasing);
 
-  const int size = 120;
+  const float scale = 1.5f;  // the shapes below are laid out for a 120 px icon
+  const int size = 120 * scale;
   const int gap = UI_BORDER_SIZE / 2;
   int count = (approachBumpMetres >= 0 ? 1 : 0) + (approachRoundaboutMetres >= 0 ? 1 : 0);
   int x = setSpeedRect.center().x() - (count * size + (count - 1) * gap) / 2;
   int y = speedSignsBottom + UI_BORDER_SIZE;
   // Under the speed signs is where the MARK BUMP / MARK ISLAND buttons go too, and they are drawn on top: move the icons past them
-  QRect icons(x - 20, y, count * size + (count - 1) * gap + 40, size + 48);
+  QRect icons(x - 20, y, count * size + (count - 1) * gap + 40, size + 68);
   if (icons.intersects(markButtonsRect)) {
     x = markButtonsRect.right() + UI_BORDER_SIZE + 20;
   }
 
   auto drawDistance = [&](const QRect &icon, float metres) {
-    p.setFont(InterFont(36, QFont::Bold));
+    p.setFont(InterFont(52, QFont::Bold));
     p.setPen(Qt::white);
-    p.drawText(QRect(icon.x() - 20, icon.bottom() + 4, icon.width() + 40, 44), Qt::AlignCenter, QString::number(std::lround(metres)) + " m");
+    p.drawText(QRect(icon.x() - 20, icon.bottom() + 4, icon.width() + 40, 64), Qt::AlignCenter, QString::number(std::lround(metres)) + " m");
   };
 
   if (approachBumpMetres >= 0) {
     // Swedish warning sign: yellow triangle with a red border, and a bump on the road line
-    QRect icon(x, y, size, size);
+    QRect sign(x, y, size, size);
+    p.save();
+    p.translate(sign.topLeft());
+    p.scale(scale, scale);
+    QRect icon(0, 0, 120, 120);
     QPolygonF triangle;
     triangle << QPointF(icon.center().x(), icon.top() + 6) << QPointF(icon.right() - 4, icon.bottom() - 10) << QPointF(icon.left() + 4, icon.bottom() - 10);
     p.setPen(QPen(QColor(200, 16, 46), 12, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -1176,20 +1178,25 @@ void FrogPilotAnnotatedCameraWidget::paintApproachIcons(QPainter &p) {
     p.setPen(QPen(Qt::black, 7, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
     p.setBrush(Qt::NoBrush);
     p.drawPath(bump);
+    p.restore();
 
-    drawDistance(icon, approachBumpMetres);
+    drawDistance(sign, approachBumpMetres);
     x += size + gap;
   }
 
   if (approachRoundaboutMetres >= 0) {
     // Swedish roundabout sign: blue disc with three white arrows going round anticlockwise, the way traffic does
-    QRect icon(x, y, size, size);
+    QRect sign(x, y, size, size);
+    p.save();
+    p.translate(sign.topLeft());
+    p.scale(scale, scale);
+    QRect icon(0, 0, 120, 120);
     p.setPen(QPen(Qt::white, 4));
     p.setBrush(QColor(0, 82, 147));
     p.drawEllipse(icon.adjusted(4, 4, -4, -4));
 
     QPointF centre = QRectF(icon).center();
-    float radius = size * 0.24f;
+    float radius = icon.width() * 0.24f;
     p.setPen(QPen(Qt::white, 9, Qt::SolidLine, Qt::FlatCap));
     p.setBrush(Qt::white);
     for (int i = 0; i < 3; ++i) {
@@ -1209,8 +1216,9 @@ void FrogPilotAnnotatedCameraWidget::paintApproachIcons(QPainter &p) {
       p.drawPolygon(head);
       p.setPen(QPen(Qt::white, 9, Qt::SolidLine, Qt::FlatCap));
     }
+    p.restore();
 
-    drawDistance(icon, approachRoundaboutMetres);
+    drawDistance(sign, approachRoundaboutMetres);
   }
 
   p.restore();

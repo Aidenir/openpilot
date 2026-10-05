@@ -5,6 +5,9 @@
 
 const int widget_size = img_size + (UI_BORDER_SIZE / 2);
 
+// m from mapd's roundabout distance (to the ring's line) back to the give-way line: roundabout_controller.ENTRY_OFFSET
+const float ROUNDABOUT_ENTRY_OFFSET = 4.0f;
+
 class FrogPilotAnnotatedCameraWidget : public QWidget {
   Q_OBJECT
 

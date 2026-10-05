@@ -106,12 +106,12 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"SpeedBumpApproachIcon",
      tr("Speed Bump And Roundabout Icons"),
-     tr("<b>Blink a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
+     tr("<b>Show a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
      ""},
 
     {"SpeedBumpApproachIconDistance",
      tr("Icon Distance"),
-     tr("<b>How far before a speed bump or roundabout its icon starts blinking.</b> Measured to where the bump starts, or to the "
+     tr("<b>How far before a speed bump or roundabout its icon appears.</b> Measured to where the bump starts, or to the "
         "roundabout's give-way line."),
      ""},
 
