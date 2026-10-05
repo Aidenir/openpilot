@@ -1082,6 +1082,11 @@ void FrogPilotAnnotatedCameraWidget::paintApproachIcons(QPainter &p) {
   int count = (approachBumpMetres >= 0 ? 1 : 0) + (approachRoundaboutMetres >= 0 ? 1 : 0);
   int x = setSpeedRect.center().x() - (count * size + (count - 1) * gap) / 2;
   int y = speedSignsBottom + UI_BORDER_SIZE;
+  // Under the speed signs is where the MARK BUMP / MARK ISLAND buttons go too, and they are drawn on top: move the icons past them
+  QRect icons(x - 20, y, count * size + (count - 1) * gap + 40, size + 48);
+  if (icons.intersects(markButtonsRect)) {
+    x = markButtonsRect.right() + UI_BORDER_SIZE + 20;
+  }
 
   auto drawDistance = [&](const QRect &icon, float metres) {
     p.setFont(InterFont(36, QFont::Bold));

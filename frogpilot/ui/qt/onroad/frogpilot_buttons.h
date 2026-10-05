@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QPointer>
+
 #include "selfdrive/ui/qt/onroad/buttons.h"
+#include "selfdrive/ui/qt/widgets/input.h"
 
 class DrivingPersonalityButton : public QPushButton {
   Q_OBJECT
@@ -110,7 +113,8 @@ private:
 };
 
 // Shown with the "No GPS Signal" alert. The modem's GPS sometimes stays silent for a whole drive (2026-10-02) and only a reboot
-// has been seen to bring it back. A tap asks for confirmation first, since rebooting drops openpilot until it is back up
+// has been seen to bring it back. A tap asks for confirmation first, since rebooting drops openpilot until it is back up, and it
+// only works while openpilot is disengaged: rebooting would otherwise drop the car out of openpilot's control mid-drive
 class GpsRebootButton : public QPushButton {
   Q_OBJECT
 
@@ -120,8 +124,14 @@ public:
   // Whether the "No GPS Signal" alert is the one on screen
   static bool alertShown(const UIState &s);
 
+  // Every frame, shown or not: closes a confirmation left open once openpilot engages or the alert has gone
+  void updateState(const UIState &s);
+
 private:
   void paintEvent(QPaintEvent *event) override;
+
+  bool engaged = false;
+  QPointer<ConfirmationDialog> confirmation;
 
   Params params;
 };

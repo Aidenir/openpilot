@@ -43,6 +43,8 @@ public:
   QPoint dmIconPosition;
   QPoint experimentalButtonPosition;
 
+  QRect markButtonsRect;
+
   QPolygonF track_adjacent_vertices[2];
   QPolygonF track_edge_vertices;
   QPolygonF track_vertices;

@@ -69,19 +69,34 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
     speed_bump_mark_btn->updateState(frogpilot_toggles.value("speed_bump_detect").toBool());
   }
 
-  // Under the speed bump button, or in its place when that is off
+  // Beside the speed bump button, further in, or in its place when that is off. Stacked under it, it ran into the onroad
+  // distance button and the driver monitoring icon below
   bool refuge_island_mark_btn_enabled = frogpilot_toggles.value("user_refuge_island_button").toBool();
   refuge_island_mark_btn->setVisible(refuge_island_mark_btn_enabled);
   if (refuge_island_mark_btn_enabled) {
     int x = frogpilot_nvg->rightHandDM ? width() - UI_BORDER_SIZE * 2 - refuge_island_mark_btn->width() : UI_BORDER_SIZE * 2;
-    int y = speed_bump_mark_btn_enabled ? speed_bump_mark_btn->y() + speed_bump_mark_btn->height() + UI_BORDER_SIZE
-                                        : height() * 0.55 - refuge_island_mark_btn->height() / 2;
+    int y = height() * 0.55 - speed_bump_mark_btn->height() / 2;
+    if (speed_bump_mark_btn_enabled) {
+      int step = speed_bump_mark_btn->width() + UI_BORDER_SIZE;
+      x += frogpilot_nvg->rightHandDM ? -step : step;
+    }
     refuge_island_mark_btn->move(x, y);
     refuge_island_mark_btn->updateState();
   }
 
+  // So the approach icons can be drawn clear of the mark buttons
+  QRect mark_buttons;
+  if (speed_bump_mark_btn_enabled) {
+    mark_buttons |= speed_bump_mark_btn->geometry();
+  }
+  if (refuge_island_mark_btn_enabled) {
+    mark_buttons |= refuge_island_mark_btn->geometry();
+  }
+  frogpilot_nvg->markButtonsRect = mark_buttons;
+
   // Across from the speed bump button, on the passenger's side
   bool gps_reboot_btn_enabled = GpsRebootButton::alertShown(s);
+  gps_reboot_btn->updateState(s);
   gps_reboot_btn->setVisible(gps_reboot_btn_enabled);
   if (gps_reboot_btn_enabled) {
     int x = frogpilot_nvg->rightHandDM ? UI_BORDER_SIZE * 2 : width() - UI_BORDER_SIZE * 2 - gps_reboot_btn->width();
@@ -240,19 +255,6 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   watchdog_stage("paint:before_frogpilot_widgets");
   frogpilot_nvg->paintFrogPilotWidgets(painter, *s);
   watchdog_stage("paint:after_frogpilot_widgets");
-
-  // Debug: Draw DM distraction time
-  auto dm_state = sm["driverMonitoringState"].getDriverMonitoringState();
-  float distraction_time = dm_state.getDistractionTime();
-  if (distraction_time > 0.1) {  // Only show if driver has looked away
-    painter.save();
-    painter.setPen(QColor(255, 255, 255, 200));
-    painter.setFont(InterFont(40, QFont::Bold));
-    QString debug_text = QString("DM: %1s").arg(QString::number(distraction_time, 'f', 1));
-    QRect debug_rect(width() - 250, 50, 200, 50);
-    painter.drawText(debug_rect, Qt::AlignRight | Qt::AlignTop, debug_text);
-    painter.restore();
-  }
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
