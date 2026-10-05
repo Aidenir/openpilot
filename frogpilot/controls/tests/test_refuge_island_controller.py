@@ -18,7 +18,7 @@ def model(right_edge=3.3, edge_std=0.3):
 
 
 def drive(v=10.5, islands=(ISLAND,), distance=320.0, model_gain=1.0, right_edge=3.3, setting=0.4, first_seen=None, noise=0.0,
-          push_left_at=None, seed=0):
+          push_left_at=None, blinker_from=None, seed=0):
   """Drives past "islands" (m from the start) at "v", with mapd reporting the next one ahead (from "first_seen" m out, if set,
   e.g. just after turning onto the road) and a driving model that steers back to its own line the way the logged one does,
   "model_gain" times as hard. Returns per step: s, e (m right of the model's line), the added curvature and the offset."""
@@ -35,7 +35,8 @@ def drive(v=10.5, islands=(ISLAND,), distance=320.0, model_gain=1.0, right_edge=
     reported = min(ahead) + rng.normal(0, noise) if found else 0.0
     pushing = push_left_at is not None and push_left_at <= s < push_left_at + 10
     model_curvature = -a * e - b * de
-    ric.update(True, True, v, found, max(reported, 0.0), model(right_edge), pushing, 100.0 if pushing else 0.0, False, False,
+    blinker = blinker_from is not None and s >= blinker_from
+    ric.update(True, True, v, found, max(reported, 0.0), model(right_edge), pushing, 100.0 if pushing else 0.0, blinker, False,
                model_curvature, setting)
     lag.append(ric.curvature)
     ds = v * DT_MDL
@@ -151,3 +152,12 @@ class TestRefugeIslandController:
       jitter = MATCH_DISTANCE * 0.4 * (-1) ** k
       ric.update(True, True, 10.0, True, 120.0 - 10.0 * DT_MDL * k + jitter, model(), False, 0.0, False, False, 0.0, 0.4)
     assert len(ric.islands) == 1
+
+  def test_a_held_blinker_eases_all_the_way_back(self):
+    # The blinker held from alongside the island: easing back out ran from scratch every frame it was on, never steering back
+    # right and leaving a steady pull to the left, towards the island
+    run = drive(blinker_from=ISLAND)
+    after = run[run[:, 0] > ISLAND]
+    assert after[:, 2].max() > 0.0 and after[:, 2].min() < 0.0
+    assert abs(at(run, ISLAND + 60)[1]) < 0.02
+    assert at(run, ISLAND + 60)[3] == 0.0

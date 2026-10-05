@@ -135,8 +135,10 @@ class RefugeIslandController:
     self.offset = 0.0
 
   def cancel(self, v_ego):
-    """Stop: ease out of any offset now under way, and forget the islands being tracked."""
-    if self.offset > 0.0:
+    """Stop: ease out of any offset now under way, and forget the islands being tracked. Called every frame the reason holds, so a
+    fade already easing out is left to finish: restarting it each frame from where it had got to never eased back the other way,
+    and held the car pulled left of the model's line, towards the island."""
+    if self.offset > 0.0 and (self.islands or self.fade is None):
       self.fade = Fade(self.odometer, self.offset, float(np.clip(v_ego * RAMP_OUT_TIME, *RAMP_OUT_LIMITS)))
     self.ignored += [position for island in self.islands for position in (island.start, island.end)]
     self.islands = []
