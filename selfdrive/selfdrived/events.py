@@ -506,6 +506,17 @@ def nnff_loaded_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMast
       Priority.LOW, VisualAlert.none, AudibleAlert.engage, 5.0)
 
 
+def overtake_suggestion_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
+  lead_speed = get_display_speed(sm["radarState"].leadOne.vLead, metric)
+  speed_limit = get_display_speed(sm["frogpilotPlan"].overtakeSpeedLimit, metric)
+
+  return Alert(
+    "Initiate overtake?",
+    f"Lead {lead_speed}, limit {speed_limit}, {sm['frogpilotPlan'].overtakeLaneSource}",
+    FrogPilotAlertStatus.frogpilot, AlertSize.mid,
+    Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 1.)
+
+
 def no_lane_available_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
   lane_width = sm["frogpilotPlan"].laneWidthLeft if sm["modelV2"].meta.laneChangeDirection == LaneChangeDirection.left else sm["frogpilotPlan"].laneWidthRight
   lane_width_msg = f"{lane_width:.1f} Meters" if metric else f"{lane_width * CV.METER_TO_FOOT:.1f} Feet"
@@ -1244,6 +1255,10 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "",
       FrogPilotAlertStatus.frogpilot, AlertSize.small,
       Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
+  },
+
+  FrogPilotEventName.overtakeSuggestion: {
+    ET.PERMANENT: overtake_suggestion_alert,
   },
 
   FrogPilotEventName.massageReminder: {

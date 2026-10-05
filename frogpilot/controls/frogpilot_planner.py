@@ -22,6 +22,7 @@ from openpilot.frogpilot.controls.lib.frogpilot_events import FrogPilotEvents
 from openpilot.frogpilot.controls.lib.frogpilot_following import FrogPilotFollowing
 from openpilot.frogpilot.controls.lib.frogpilot_traffic import FrogPilotTraffic
 from openpilot.frogpilot.controls.lib.frogpilot_vcruise import FrogPilotVCruise
+from openpilot.frogpilot.controls.lib.overtake_detector import OvertakeDetector
 from openpilot.frogpilot.controls.lib.refuge_island_controller import RefugeIslandController
 from openpilot.frogpilot.controls.lib.weather_checker import WeatherChecker
 
@@ -37,6 +38,7 @@ class FrogPilotPlanner:
     self.frogpilot_traffic = FrogPilotTraffic()
     self.frogpilot_vcruise = FrogPilotVCruise(self)
     self.frogpilot_weather = WeatherChecker(self)
+    self.overtake_detector = OvertakeDetector()
     self.refuge_island_controller = RefugeIslandController()
 
     self.driving_in_curve = False
@@ -164,6 +166,16 @@ class FrogPilotPlanner:
                                          sm["modelV2"].meta.laneChangeState != log.LaneChangeState.off,
                                          sm["modelV2"].action.desiredCurvature, frogpilot_toggles.refuge_island_offset)
 
+    # Whether overtaking the lead would make sense, only shown on screen for now (FrogPilotEvents). The speed limit is the one
+    # "Speed Limit Controller" goes by when it (or "Show Speed Limits") is on, mapd's otherwise
+    speed_limit = self.frogpilot_vcruise.slc_target or (sm["mapdOut"].speedLimit if mapd_alive else 0.0)
+    lane_line_probs = sm["modelV2"].laneLineProbs
+    left_lane_prob = lane_line_probs[0] if len(lane_line_probs) else 0.0
+    self.overtake_detector.update(frogpilot_toggles.overtake_suggestion, v_ego, speed_limit, self.lead_one, mapd_alive,
+                                  sm["mapdOut"].oneWay, sm["mapdOut"].lanes, left_lane_prob, self.lane_width_left,
+                                  sm["carState"].leftBlinker or sm["carState"].rightBlinker or
+                                  sm["modelV2"].meta.laneChangeState != log.LaneChangeState.off)
+
     if self.gps_valid and time_validated and frogpilot_toggles.weather_presets:
       self.frogpilot_weather.update_weather(now, frogpilot_toggles)
     else:
@@ -237,6 +249,9 @@ class FrogPilotPlanner:
     frogpilotPlan.gpsStatus = self.gps_status
     frogpilotPlan.refugeIslandCurvature = self.refuge_island_controller.curvature
     frogpilotPlan.refugeIslandOffset = self.refuge_island_controller.offset
+    frogpilotPlan.overtakeSuggested = self.overtake_detector.suggested
+    frogpilotPlan.overtakeSpeedLimit = float(self.overtake_detector.speed_limit)
+    frogpilotPlan.overtakeLaneSource = self.overtake_detector.lane_source
     frogpilotPlan.slcMapboxSpeedLimit = self.frogpilot_vcruise.slc.mapbox_limit
     frogpilotPlan.slcNextSpeedLimit = self.frogpilot_vcruise.slc.next_speed_limit
     frogpilotPlan.slcOverriddenSpeed = self.frogpilot_vcruise.slc.overridden_speed

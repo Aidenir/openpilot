@@ -566,6 +566,8 @@ class FrogPilotVariables:
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
     toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
 
+    toggle.overtake_suggestion = self.get_value("OvertakeSuggestion")
+
     toggle.refuge_island_nudge = self.get_value("RefugeIslandNudge")
     toggle.refuge_island_offset = self.get_value("RefugeIslandOffset", cast=float, condition=toggle.refuge_island_nudge, default=0.4, min=0.1, max=0.8)
     toggle.user_refuge_island_button = self.get_value("UserRefugeIslandButton")

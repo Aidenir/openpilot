@@ -209,6 +209,14 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "slower at high speed). Lower is smoother but needs an earlier braking point for the same result; higher is more abrupt."),
      ""},
 
+    {"OvertakeSuggestion",
+     tr("Suggest Overtaking"),
+     tr("<b>Ask \"Initiate overtake?\" on screen when following a car well under the speed limit</b> (10 km/h or more, from 30 km/h) "
+        "on a road with another lane on the left going the same way, after 3 seconds of it. It only asks: the car does nothing. "
+        "The lane comes from <b>mapd</b>'s map data where it has a lane count, from the camera where it doesn't; the second line "
+        "says which. A first step towards automatic overtaking, to see whether the detection is right."),
+     ""},
+
     {"RefugeIslandNudge",
      tr("Keep Right Of Refuge Islands"),
      tr("<b>Move the car over to the right for refuge islands in the middle of the road,</b> the kerbed islands where pedestrians cross, "

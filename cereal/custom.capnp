@@ -160,6 +160,7 @@ struct FrogPilotOnroadEvent @0xa5cd762cd951a455 {
     speedBumpMarkFailed @33;
     speedBumpIgnored @34;
     speedBumpIgnoreUndone @35;
+    overtakeSuggestion @36;
   }
 }
 
@@ -210,6 +211,9 @@ struct FrogPilotPlan @0xf98d843bfd7004a3 {
   gpsStatus @43 :UInt8;  # frogpilot/controls/lib/gps_status.py: 0 unknown, 1 no GPS, 2 searching, 3 weak fix, 4 good fix
   refugeIslandCurvature @44 :Float32;  # 1/m, added to the model's desired curvature to keep right of a refuge island (right positive); 0 otherwise
   refugeIslandOffset @45 :Float32;  # m, how far right of the model's line the car is being taken for a refuge island
+  overtakeSuggested @46 :Bool;  # frogpilot/controls/lib/overtake_detector.py: following a slow lead with a lane on the left to overtake in
+  overtakeSpeedLimit @47 :Float32;  # m/s, the speed limit the lead was compared against; 0 when not suggested
+  overtakeLaneSource @48 :Text;  # where the lane was seen, "2 lanes (map)" or "left lane (camera)"; "" when not suggested
 }
 
 struct FrogPilotRadarState @0xb86e6369214c01c8 {

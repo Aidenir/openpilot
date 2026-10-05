@@ -96,6 +96,10 @@ class FrogPilotEvents:
     else:
       self.max_acceleration = 0
 
+    # Held on screen for as long as overtaking the lead makes sense (OvertakeDetector), with a prompt when it first shows
+    if self.frogpilot_planner.overtake_detector.suggested:
+      self.events.add(FrogPilotEventName.overtakeSuggestion)
+
     if self.frogpilot_planner.frogpilot_vcruise.forcing_stop:
       self.events.add(FrogPilotEventName.forcingStop)
 
