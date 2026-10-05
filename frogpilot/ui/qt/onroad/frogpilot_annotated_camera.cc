@@ -202,6 +202,15 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   laneWidthLeft = frogpilotPlan.getLaneWidthLeft();
   laneWidthRight = frogpilotPlan.getLaneWidthRight();
   lateralPaused = frogpilotCarState.getPauseLateral();
+
+  bool carStateAlive = fpsm.alive("frogpilotCarState");
+  const auto travelAssistMenu = frogpilotCarState.getTravelAssistMenu();
+  travelAssistMenuOpen = carStateAlive && travelAssistMenu.getOpen();
+  travelAssistSelected = carStateAlive ? travelAssistMenu.getSelected() : -1;
+  travelAssistItems.clear();
+  for (const auto &item : travelAssistMenu.getItems()) {
+    travelAssistItems.append(QString::fromStdString(item.cStr()));
+  }
   longitudinalPaused = frogpilotCarState.getPauseLongitudinal();
   mapSpeedLimit = frogpilotPlan.getSlcMapSpeedLimit();
   mapboxSpeedLimit = frogpilotPlan.getSlcMapboxSpeedLimit();
@@ -427,6 +436,57 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
   if (!hideBottomIcons) {
     paintWeather(p);
   }
+
+  if (travelAssistMenuOpen || travelAssistSelected >= 0) {
+    paintTravelAssistMenu(p);
+  }
+}
+
+void FrogPilotAnnotatedCameraWidget::paintTravelAssistMenu(QPainter &p) {
+  // A see-through cross in the middle of the screen, one arm per cruise button: + up, - down, SET left, RES right. Once an arm is
+  // chosen the menu closes and that arm alone stays lit for a moment
+  static const char *BUTTONS[] = {"+", "−", "SET", "RES"};
+  static const QPoint DIRECTIONS[] = {QPoint(0, -1), QPoint(0, 1), QPoint(-1, 0), QPoint(1, 0)};
+
+  p.save();
+  p.setRenderHint(QPainter::Antialiasing);
+
+  const QPoint center = rect().center();
+  const QSize arm(300, 150);
+  const int reach = 175;  // from the middle to an arm's middle
+
+  if (travelAssistMenuOpen) {
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 90));
+    p.drawEllipse(center, 60, 60);
+  }
+
+  for (int i = 0; i < 4; i++) {
+    QString item = i < travelAssistItems.size() ? travelAssistItems[i] : QString();
+    bool chosen = travelAssistSelected == i;
+    if (!travelAssistMenuOpen && !chosen) {
+      continue;
+    }
+
+    QPoint middle = center + DIRECTIONS[i] * reach;
+    QRect box(middle - QPoint(arm.width() / 2, arm.height() / 2), arm);
+    QColor edge = chosen ? QColor(80, 220, 100, 230) : item.isEmpty() ? QColor(255, 255, 255, 60) : QColor(255, 255, 255, 200);
+
+    p.setBrush(chosen ? QColor(20, 90, 40, 170) : QColor(0, 0, 0, item.isEmpty() ? 70 : 120));
+    p.setPen(QPen(edge, 5));
+    p.drawRoundedRect(box, 28, 28);
+
+    p.setPen(edge);
+    p.setFont(InterFont(34, QFont::Bold));
+    p.drawText(box.adjusted(0, 10, 0, -box.height() / 2), Qt::AlignHCenter | Qt::AlignTop, BUTTONS[i]);
+    if (!item.isEmpty()) {
+      p.setPen(Qt::white);
+      p.setFont(InterFont(40, QFont::Bold));
+      p.drawText(box.adjusted(10, box.height() / 2 - 15, -10, -10), Qt::AlignCenter, item);
+    }
+  }
+
+  p.restore();
 }
 
 void FrogPilotAnnotatedCameraWidget::paintAdjacentPaths(QPainter &p) {

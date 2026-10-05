@@ -68,6 +68,7 @@ private:
   void paintCurveSpeedControlTraining(QPainter &p);
   void paintDriverAwareness(QPainter &p);
   void paintApproachIcons(QPainter &p);
+  void paintTravelAssistMenu(QPainter &p);
   void paintLateralPaused(QPainter &p);
   void paintLongitudinalPaused(QPainter &p);
   void paintPedalIcons(QPainter &p);
@@ -109,6 +110,11 @@ private:
   // Blinking icons under the speed signs for a speed bump or roundabout coming up (distances in metres, -1 if none close)
   float approachBumpMetres = -1.0f;
   float approachRoundaboutMetres = -1.0f;
+
+  // The Travel Assist menu (frogpilotCarState.travelAssistMenu)
+  bool travelAssistMenuOpen = false;
+  int travelAssistSelected = -1;
+  QStringList travelAssistItems;
   int speedSignsBottom = 0;
   bool dmAwarenessValid = false;
 

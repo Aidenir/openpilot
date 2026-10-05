@@ -214,6 +214,9 @@ class Car:
     if can_rcv_valid and REPLAY:
       self.can_log_mono_time = messaging.log_from_bytes(can_strs[0]).logMonoTime
 
+    # FrogPilot variables: the Travel Assist menu takes the cruise buttons while it's open, before anything else sees them
+    self.frogpilot_card.update_travel_assist_menu(CS, FPCS)
+
     self.v_cruise_helper.update_v_cruise(CS, self.sm['carControl'].enabled, self.is_metric, self.frogpilot_toggles)
     if self.sm['carControl'].enabled and not self.CC_prev.enabled:
       # Use CarState w/ buttons from the step selfdrived enables on

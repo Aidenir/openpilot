@@ -8,6 +8,8 @@ from opendbc.car.volkswagen.values import DBC, CanBus, NetworkLocation, Transmis
 
 ButtonType = structs.CarState.ButtonEvent.Type
 
+MFL_TRAVEL_ASSIST = 0x74  # MFL_Tastencode "TravelAssist"
+
 
 class CarState(CarStateBase):
   def __init__(self, CP, FPCP):
@@ -143,6 +145,10 @@ class CarState(CarStateBase):
 
     # FrogPilot variables
     fp_ret = custom.FrogPilotCarState.new_message()
+    # The Travel Assist button, which openpilot has no use for. Not seen in any log yet, so both places VW has been seen to put it
+    # are read: GRA_ACC_01's bit 30 (MQB Evo / MEB) and the steering wheel key code 0x74 (MEB's MFL_01 table)
+    fp_ret.travelAssistPressed = bool(pt_cp.vl["GRA_ACC_01"]["GRA_Travel_Assist"]) or \
+                                 pt_cp.vl["MFL_Tasten"]["MFL_Tastencode"] == MFL_TRAVEL_ASSIST
 
     return ret, fp_ret
 
@@ -334,7 +340,8 @@ class CarState(CarStateBase):
 
     if not CP.flags & VolkswagenFlags.MLB:
       pt_messages += [
-        ("Blinkmodi_02", 1)  # From J519 BCM (sent at 1Hz when no lights active, 50Hz when active)
+        ("Blinkmodi_02", 1),  # From J519 BCM (sent at 1Hz when no lights active, 50Hz when active)
+        ("MFL_Tasten", float('nan')),  # Steering wheel key events, only sent on a press
       ]
     if CP.flags & VolkswagenFlags.STOCK_HCA_PRESENT:
       cam_messages += [

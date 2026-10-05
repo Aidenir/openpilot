@@ -9,6 +9,7 @@ from openpilot.selfdrive.selfdrived.events import ET
 from openpilot.frogpilot.common.frogpilot_utilities import is_FrogsGoMoo
 from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, NON_DRIVING_GEARS
 from openpilot.frogpilot.controls.lib.conditional_experimental_mode import CEStatus
+from openpilot.frogpilot.controls.lib.travel_assist_menu import TravelAssistMenu
 
 class FrogPilotCard:
   def __init__(self, CP, FPCP):
@@ -27,7 +28,10 @@ class FrogPilotCard:
     self.traffic_mode_enabled = False
 
     self.gap_counter = 0
+    self.refuge_island_request_id = 0
     self.speed_bump_request_id = 0
+
+    self.travel_assist_menu = TravelAssistMenu()
 
     self.always_on_lateral_set = bool(FPCP.alternativeExperience & ALTERNATIVE_EXPERIENCE.ALWAYS_ON_LATERAL)
     self.frogs_go_moo = is_FrogsGoMoo()
@@ -65,6 +69,23 @@ class FrogPilotCard:
       "source": "wheel",
       "oneWay": bool(frogpilot_toggles.speed_bump_mark_one_way),
     })
+
+  def request_refuge_island(self, tap_ms):
+    # The same request the onroad "MARK ISLAND" button sends
+    self.refuge_island_request_id = max(tap_ms, self.refuge_island_request_id + 1)
+    self.params_memory.put("UserRefugeIslandRequest", {
+      "id": self.refuge_island_request_id,
+      "action": "mark",
+      "tapMs": tap_ms,
+      "source": "wheel",
+    })
+
+  def update_travel_assist_menu(self, carState, frogpilotCarState):
+    """Runs before the set speed and engagement logic see carState's button events, so the menu can take the cruise buttons"""
+    now_ms = int(time.time() * 1000)  # noqa: TID251  mapd works in wall-clock milliseconds
+    choice = self.travel_assist_menu.update(carState, frogpilotCarState.travelAssistPressed, now_ms)
+    if choice == "refuge_island":
+      self.request_refuge_island(self.travel_assist_menu.choice_ms)
 
   def handle_experimental_mode(self, sm, frogpilot_toggles):
     if frogpilot_toggles.conditional_experimental_mode:
@@ -132,5 +153,6 @@ class FrogPilotCard:
     frogpilotCarState.pauseLateral = self.pause_lateral
     frogpilotCarState.pauseLongitudinal = self.pause_longitudinal
     frogpilotCarState.trafficModeEnabled = self.traffic_mode_enabled
+    self.travel_assist_menu.publish(frogpilotCarState.travelAssistMenu)
 
     return frogpilotCarState

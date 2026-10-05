@@ -80,6 +80,15 @@ struct FrogPilotCarState @0xf35cc4560bbf6ec2 {
   pauseLongitudinal @11 :Bool;
   sportGear @12 :Bool;
   trafficModeEnabled @13 :Bool;
+  travelAssistPressed @14 :Bool;  # the steering wheel's Travel Assist button is held (VW)
+  travelAssistMenu @15 :TravelAssistMenu;
+
+  # The onroad menu the Travel Assist button opens, worked with the cruise buttons (see travel_assist_menu.py)
+  struct TravelAssistMenu {
+    open @0 :Bool;
+    items @1 :List(Text);  # by arm: +, -, SET, RES; "" for an empty arm
+    selected @2 :Int8;     # the arm just chosen, shown briefly after the menu closes; -1 if none
+  }
 }
 
 struct FrogPilotDeviceState @0xda96579883444c35 {

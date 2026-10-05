@@ -618,6 +618,11 @@ BO_ 299 GRA_ACC_01: 8 Gateway_MQB
  SG_ GRA_Typ468 : 25|2@1+ (1,0) [0|3] "" Motor_Diesel_MQB,Motor_Hybrid_MQB,Motor_Otto_MQB
  SG_ GRA_Tip_Stufe_2 : 27|1@1+ (1,0) [0|1] "" Motor_Diesel_MQB,Motor_Hybrid_MQB,Motor_Otto_MQB
  SG_ GRA_ButtonTypeInfo : 28|2@1+ (1,0) [0|1] "" Motor_Diesel_MQB,Motor_Hybrid_MQB,Motor_Otto_MQB
+ SG_ GRA_Travel_Assist : 30|1@1+ (1,0) [0|1] "" XXX
+
+BO_ 1471 MFL_Tasten: 4 XXX
+ SG_ MFL_Tastencode : 0|8@1+ (1,0) [0|255] "" XXX
+ SG_ MFL_Eventcode : 8|8@1+ (1,0) [0|255] "" XXX
 
 BO_ 960 Klemmen_Status_01: 4 Gateway_MQB
  SG_ CHECKSUM : 0|8@1+ (1,0) [0|255] "" Airbag_MQB,BMS_MQB,Motor_Diesel_MQB,Motor_Hybrid_MQB,Motor_Otto_MQB
@@ -1610,6 +1615,8 @@ BO_ 391 Motor_EV_01: 8 Motor_MQB_BEV
  SG_ MO_HVEM_Eskalation : 54|1@1+ (1.0,0.0) [0.0|1] ""  XXX
  SG_ MO_HVEM_MaxLeistung : 55|9@1+ (50,0) [0|25450] "Unit_Watt"  XXX
 
+CM_ SG_ 299 GRA_Travel_Assist "Travel Assist button on some MQB wheels: GRA_TravelAssist in vw_meb.dbc, MAYBE_TRAVEL_ASSIST in vw_mqbevo.dbc. Unconfirmed on MQB";
+CM_ BO_ 1471 "Multifunction steering wheel key events, sent only on a press. Layout from vw_meb.dbc MFL_01 Tastencode; 0x74 is TravelAssist there";
 CM_ SG_ 134 LWI_Lenkradwinkel "Steering angle WITH variable ratio effect included";
 CM_ SG_ 159 EPS_HCA_Status "Status of Heading Control Assist feature";
 CM_ SG_ 159 EPS_Lenkmoment "Steering input by driver, torque";
