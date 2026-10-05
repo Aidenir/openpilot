@@ -457,8 +457,10 @@ def forcing_stop_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMas
   model_length = sm["frogpilotPlan"].forcingStopLength
   model_length_msg = f"{model_length:.1f} meters" if metric else f"{model_length * CV.METER_TO_FOOT:.1f} feet"
 
+  # FrogPilot: once stopped, say so rather than counting down the last bit of dead-reckoned distance
+  title = "Stopped for a red light or stop sign" if CS.standstill else f"Forcing the car to stop in {model_length_msg}"
   return Alert(
-    f"Forcing the car to stop in {model_length_msg}",
+    title,
     "Press the gas pedal or 'Resume' button to override",
     FrogPilotAlertStatus.frogpilot, AlertSize.mid,
     Priority.MID, VisualAlert.none, AudibleAlert.prompt, 1.)

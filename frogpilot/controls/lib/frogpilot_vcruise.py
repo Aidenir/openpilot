@@ -4,7 +4,7 @@ from openpilot.common.realtime import DT_MDL
 
 from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController
-from openpilot.frogpilot.controls.lib.red_light_controller import RedLightController
+from openpilot.frogpilot.controls.lib.red_light_controller import MARGIN as RED_LIGHT_MARGIN, RedLightController
 from openpilot.frogpilot.controls.lib.roundabout_controller import ENTRY_OFFSET, roundabout_config, roundabout_speed
 from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, SpeedBumpController
 from openpilot.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
@@ -103,7 +103,12 @@ class FrogPilotVCruise:
       v_cruise = min(v_cruise, stop_target)
 
     self.forcing_stop = long_control_active and self.rlc.stopping
-    self.tracked_model_length = max(self.rlc.stop_distance, 0.0) if self.rlc.stopping else self.frogpilot_planner.model_length
+    # Shown in the "Forcing the car to stop in" alert: to where the car will stop, MARGIN short of the stop point. It showed the stop
+    # point itself, so a car already stopped where it should be read "2.5 m"
+    if self.rlc.stopping:
+      self.tracked_model_length = max(self.rlc.stop_distance - RED_LIGHT_MARGIN, 0.0)
+    else:
+      self.tracked_model_length = self.frogpilot_planner.model_length
 
     # Speed bumps from mapd. Applied on its own rather than in "targets" above since the bump speed may be
     # set below "CRUISING_SPEED", and it only ever lowers the cruise speed, so it's safe on top of a force stop.
