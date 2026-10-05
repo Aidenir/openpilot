@@ -207,9 +207,14 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   const auto travelAssistMenu = frogpilotCarState.getTravelAssistMenu();
   travelAssistMenuOpen = carStateAlive && travelAssistMenu.getOpen();
   travelAssistSelected = carStateAlive ? travelAssistMenu.getSelected() : -1;
+  if (carStateAlive) {
+    travelAssistCameraSwitches = travelAssistMenu.getCameraSwitches();
+  }
   travelAssistItems.clear();
   for (const auto &item : travelAssistMenu.getItems()) {
-    travelAssistItems.append(QString::fromStdString(item.cStr()));
+    QString label = QString::fromStdString(item.cStr());
+    // Shown as the camera it switches to
+    travelAssistItems.append(label == "CAMERA" ? (showingWideCamera ? tr("NARROW CAM") : tr("WIDE CAM")) : label);
   }
   longitudinalPaused = frogpilotCarState.getPauseLongitudinal();
   mapSpeedLimit = frogpilotPlan.getSlcMapSpeedLimit();

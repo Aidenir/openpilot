@@ -13,9 +13,10 @@ from opendbc.car import DT_CTRL, ButtonType, structs
 
 ARMS = (ButtonType.accelCruise, ButtonType.decelCruise, ButtonType.setCruise, ButtonType.resumeCruise)  # +, -, SET, RES
 
-# What each arm does, by arm; None leaves it empty
-ITEMS = ("refuge_island", None, None, None)
-LABELS = {"refuge_island": "MARK ISLAND"}
+# What each arm does, by arm; None leaves it empty. "camera" swaps the onroad view between the wide and the narrow road camera
+# (the UI does it, see AnnotatedCameraWidget; it shows this arm as the view it would switch to)
+ITEMS = ("refuge_island", "camera", None, None)
+LABELS = {"refuge_island": "MARK ISLAND", "camera": "CAMERA"}
 
 TIMEOUT = 5.0        # s without a cruise button press before the menu closes on its own
 SELECTED_TIME = 1.0  # s the chosen arm stays lit after the menu closes
@@ -32,6 +33,7 @@ class TravelAssistMenu:
     self.captured = set()  # cruise buttons pressed while the menu was open, until they are let go
     self.press_ms = {}     # wall-clock ms each captured button was pressed at
     self.choice_ms = 0     # when the arm chosen last was pressed: a mark is placed where the car was then, not at the release
+    self.camera_switches = 0  # times "camera" was chosen; the UI swaps the view on each change
 
   def close(self):
     self.open = False
@@ -74,6 +76,8 @@ class TravelAssistMenu:
             if ITEMS[arm] is not None:
               choice = ITEMS[arm]
               self.choice_ms = self.press_ms.get(be.type, now_ms)
+              if choice == "camera":
+                self.camera_switches += 1
               self.selected = arm
               self.selected_time = 0.0
               self.close()
@@ -104,3 +108,4 @@ class TravelAssistMenu:
     menu.open = self.open
     menu.items = [LABELS.get(item, "") if item else "" for item in ITEMS]
     menu.selected = self.selected
+    menu.cameraSwitches = self.camera_switches
