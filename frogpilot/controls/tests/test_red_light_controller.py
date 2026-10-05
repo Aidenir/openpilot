@@ -224,3 +224,30 @@ class TestMappedSignals:
     # A mapped signal with a plan that doesn't stop (the light is green) brakes for nothing
     log = self.run(lambda x, v: cruising_plan(v), LINE)
     assert all(stop is None and decel == 0 for _, _, stop, decel in log)
+
+
+class TestTooLate:
+  def test_a_light_found_too_late_is_let_go(self):
+    # First stopped for ~10 m out at 50 km/h: braking can't make it, and capping the cruise speed at 0 slowed the car to a stop
+    # in or past the junction, with no forced stop for the gas to override
+    rlc = RedLightController()
+    v = 50 * CV.KPH_TO_MS
+    for step in range(int(3.0 / DT_MDL)):
+      position, velocity = stopping_plan(v, max(0.0, 10.0 + END_OFFSET - v * step * DT_MDL))
+      cap, decel = rlc.update(True, True, position, velocity, v, CFG)
+      assert cap is None and decel == 0.0
+      assert not rlc.stopping
+
+  def test_the_next_light_is_stopped_for_again(self):
+    rlc = RedLightController()
+    v = 50 * CV.KPH_TO_MS
+    position, velocity = stopping_plan(v, 10.0 + END_OFFSET)
+    rlc.update(True, True, position, velocity, v, CFG)
+    for _ in range(int(2 * RELEASE_TIME / DT_MDL)):
+      rlc.update(True, False, *cruising_plan(v), v, CFG)
+    v = 40 * CV.KPH_TO_MS
+    caps = []
+    for _ in range(int(2.0 / DT_MDL)):
+      cap, _ = rlc.update(True, True, *stopping_plan(v, 60.0), v, CFG)
+      caps.append(cap)
+    assert rlc.stopping and caps[-1] is not None

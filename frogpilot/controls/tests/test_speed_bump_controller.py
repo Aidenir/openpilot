@@ -415,3 +415,39 @@ class TestLearnedSeverity:
     assert sbc.tracked_severity == 0.0
     sbc.update(True, True, 80.0, 20 * CV.KPH_TO_MS, config, severity=1.0)
     assert sbc.tracked_severity == 0.0
+
+
+class TestGasOverride:
+  def run(self, override_at, release_at, bump=80.0, kph=50):
+    """Approaches a bump at "bump" m, the driver on the gas (2 m/s^2, controls inactive) from "override_at" until "release_at" m
+    from it. Returns the caps and requests after the release."""
+    sbc = SpeedBumpController()
+    x, v = 0.0, kph * CV.KPH_TO_MS
+    after = []
+    while x < bump + 20:
+      gas = bump - override_at <= x < bump - release_at
+      if gas:
+        sbc.override()
+      cap, decel = sbc.update(not gas, x < bump, bump - x, v, CFG)
+      if gas:
+        v += 2.0 * DT_MDL
+      elif cap is not None:
+        v = max(cap, v - max(decel, 1.0) * DT_MDL)
+      if x >= bump - release_at:
+        after.append((cap, decel))
+      x += v * DT_MDL
+    return sbc, after
+
+  def test_gas_while_braking_lets_go_of_the_bump(self):
+    # Braked for, overridden from 45 to 28 m out: it used to come back 3.5 m/s below the car's speed and brake at 2 m/s^2
+    _, after = self.run(override_at=45, release_at=28)
+    assert all(cap is None and decel == 0.0 for cap, decel in after)
+
+  def test_gas_far_before_the_bump_does_not_drop_it(self):
+    # Before anything is being done for the bump, the gas is just the driver driving
+    _, after = self.run(override_at=200, release_at=150, bump=200)
+    assert any(decel > 0 for _, decel in after)
+
+  def test_override_is_forgotten_once_passed(self):
+    sbc, _ = self.run(override_at=45, release_at=28)
+    assert not sbc.overridden

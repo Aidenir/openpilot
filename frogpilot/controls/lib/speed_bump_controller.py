@@ -149,6 +149,16 @@ class SpeedBumpController:
     self.braking = False
     self.too_late = False
     self.cap = None
+    self.overridden = False  # the driver pressed the gas while it was slowing for it: let go of it until it's passed
+
+  def override(self):
+    """The driver is pressing the gas. A bump being slowed for is let go of until it's passed: holding its cap through the
+    override and putting it back on release braked the car straight down from the speed the driver had taken it to."""
+    if self.confirmed and (self.braking or self.cap is not None):
+      self.overridden = True
+    self.cap = None
+    self.decel = 0.0
+    self.last_target = self.release_cap = None
 
   @property
   def hold_end(self):
@@ -297,7 +307,7 @@ class SpeedBumpController:
     self.decel = 0.0
     self.target = None
 
-    if not self.confirmed:
+    if not self.confirmed or self.overridden:
       return None, 0.0
 
     d = self.tracked_distance

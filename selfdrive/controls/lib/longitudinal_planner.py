@@ -197,6 +197,10 @@ class LongitudinalPlanner:
     # harder than ~1.2-2.4 m/s^2 and only ramps into that over about a second, far too gentle for the ~25 m a driver brakes over.
     # The request is already jerk-limited and bounded by the user's max deceleration; stale or missing frogpilotPlan means none
     speed_bump_decel = float(np.clip(sm['frogpilotPlan'].speedBumpDecel, 0.0, -ACCEL_MIN)) if sm.alive['frogpilotPlan'] else 0.0
+    if reset_state:
+      # The driver has the pedals (or openpilot isn't in control): there are no brakes to ease off. Easing from where the request
+      # left them braked again the moment a gas override ended (-3 m/s^2 -> -2.25 after half a second of gas)
+      self.speed_bump_release_frames = 0
     if speed_bump_decel > 0:
       output_a_target = min(output_a_target, -speed_bump_decel)
       self.speed_bump_release_frames = int(SPEED_BUMP_HANDOVER_TIME / self.dt)

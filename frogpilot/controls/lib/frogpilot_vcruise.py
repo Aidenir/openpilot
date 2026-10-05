@@ -43,6 +43,11 @@ class FrogPilotVCruise:
     elif self.override_force_stop_timer > 0:
       self.override_force_stop_timer -= DT_MDL
 
+    # The driver pressing the gas lets go of a bump or roundabout being slowed for (see SpeedBumpController.override)
+    if sm["carState"].gasPressed or sm["frogpilotCarState"].accelPressed:
+      self.sbc.override()
+      self.rbc.override()
+
     v_cruise_cluster = max(sm["carState"].vCruiseCluster * CV.KPH_TO_MS, v_cruise)
     v_cruise_diff = v_cruise_cluster - v_cruise
 

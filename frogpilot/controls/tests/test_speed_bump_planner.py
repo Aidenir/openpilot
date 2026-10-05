@@ -48,3 +48,17 @@ def test_brakes_come_off_gently_after_a_request():
     plant.step(v_cruise=V_CRUISE)
     assert plant.acceleration - prev <= SPEED_BUMP_HANDOVER_JERK * 0.05 + 1e-3
     prev = plant.acceleration
+
+
+def test_no_brake_pulse_after_a_gas_override():
+  # The driver pressing the gas mid-request turns longitudinal control off. Easing the brakes off from where the request left them
+  # once it was back on braked the car at -2.25 m/s^2 after half a second of gas
+  plant = Plant(speed=V_CRUISE)
+  for _ in range(40):
+    plant.step(v_cruise=V_CRUISE, speed_bump_decel=3.0)
+  plant.enabled = False
+  for _ in range(10):
+    plant.step(v_cruise=V_CRUISE)
+  plant.enabled = True
+  plant.step(v_cruise=V_CRUISE)
+  assert plant.acceleration > -1.0

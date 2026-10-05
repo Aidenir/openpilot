@@ -146,6 +146,16 @@ class RedLightController(SpeedBumpController):
           self.stop_distance = None
 
     target, decel = super().update(active, self.stop_distance is not None, self.stop_distance or 0.0, v_ego, red_light_config(config), dt)
+    if self.too_late and not self.overridden:
+      # Found too late to stop for (an amber light, or one seen late): let go of it until the light is gone. For a bump a lowered
+      # cruise speed slows the car gently, but here it is 0, so the MPC kept slowing towards a stop in or past the junction, and
+      # with no stop being forced the driver's gas couldn't override it. Conditional Experimental Mode still has the model in
+      # charge, which stops for a light it means to stop for
+      self.overridden = True
+      self.decel = 0.0
+      self.last_target = self.release_cap = None
+      self.target = target = None
+      decel = 0.0
     if target is not None and self.stopping:
       # The speed bump braking eases off as it lands on its speed, it doesn't stop. Also cap the speed to what MAX_DECEL can still
       # stop from by the stop point, so the car is brought to a stop there however it got this close
