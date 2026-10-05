@@ -1,7 +1,7 @@
 from cereal import car
 from types import SimpleNamespace
 
-from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState, long_control_state_trans
+from openpilot.selfdrive.controls.lib.longcontrol import STOPPING_HANDOFF_SPEED, LongCtrlState, long_control_state_trans
 
 
 def toggles(CP):
@@ -61,3 +61,19 @@ def test_starting():
   next_state = long_control_state_trans(CP, active, current_state, v_ego=1.0,
                              should_stop=False, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
   assert next_state == LongCtrlState.pid
+
+
+def test_stop_handed_over_only_when_nearly_stopped():
+  # The plan says stop well before the car has slowed to a crawl; handing over then made the VW finish the stop within 0.3 m
+  CP = car.CarParams.new_message()
+  for v_ego in (1.3, 0.8, STOPPING_HANDOFF_SPEED + 0.01):
+    next_state = long_control_state_trans(CP, True, LongCtrlState.pid, v_ego=v_ego,
+                                          should_stop=True, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
+    assert next_state == LongCtrlState.pid
+  next_state = long_control_state_trans(CP, True, LongCtrlState.pid, v_ego=STOPPING_HANDOFF_SPEED - 0.01,
+                                        should_stop=True, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
+  assert next_state == LongCtrlState.stopping
+  # Once stopping it stays stopping while the plan says stop, whatever the speed reads
+  next_state = long_control_state_trans(CP, True, LongCtrlState.stopping, v_ego=0.4,
+                                        should_stop=True, brake_pressed=False, cruise_standstill=False, frogpilot_toggles=toggles(CP))
+  assert next_state == LongCtrlState.stopping

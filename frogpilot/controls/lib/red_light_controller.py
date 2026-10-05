@@ -47,7 +47,8 @@ RELEASE_TIME = 0.5       # s, the stop has to be gone this long before the brake
 # Braking settings. The car's response time and the comfort jerk come from the speed bump settings
 BRAKE_TIME = 5.0  # s at the current speed before the stop point where braking starts: ~55 m from 40 km/h, at ~1.2 m/s^2
 MAX_DECEL = 3.0   # m/s^2
-MARGIN = 2.5      # m, be stopped this far before the stop point
+MARGIN = 4.5      # m, be stopped this far before the stop point. At 2.5 m drives 27b and 27e (2026-10-05, two lights) stopped with the
+                  # bumper ~1-1.5 m past the stop line (measured on the road camera 5 and 8 m out), between it and the zebra crossing
 
 
 def model_stop_distance(position_x, velocity_x):

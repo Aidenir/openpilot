@@ -201,8 +201,9 @@ class TestMappedSignals:
 
   @staticmethod
   def noisy_plan(x, v):
-    # Far out the model's stop point is 25% long, close in it is right (CREEP past the line, like creeping_plan)
-    remaining = LINE - x
+    # Far out the model's stop point is 25% long, close in it is right: MARGIN past the line, where the map puts it too (CREEP past
+    # that, like creeping_plan), so only the noise far out tells the two apart whatever MARGIN is
+    remaining = LINE + MARGIN - x
     return stopping_plan(v, remaining * (1.25 if remaining > 30.0 else 1.0) + CREEP)
 
   def test_a_mapped_signal_places_the_stop_far_out(self):

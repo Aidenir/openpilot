@@ -5,7 +5,8 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.frogpilot.common.frogpilot_variables import CRUISING_SPEED
 from openpilot.frogpilot.controls.lib.curve_speed_controller import CurveSpeedController
 from openpilot.frogpilot.controls.lib.red_light_controller import MARGIN as RED_LIGHT_MARGIN, RedLightController
-from openpilot.frogpilot.controls.lib.roundabout_controller import ENTRY_OFFSET, roundabout_config, roundabout_speed
+from openpilot.frogpilot.controls.lib.roundabout_controller import ENTRY_OFFSET, ROUNDABOUT_STALE_TIMEOUT, RingFilter, roundabout_config, \
+                                                                   roundabout_speed
 from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, SpeedBumpController
 from openpilot.frogpilot.controls.lib.speed_limit_controller import SpeedLimitController
 
@@ -17,7 +18,8 @@ class FrogPilotVCruise:
 
     self.csc = CurveSpeedController(self)
     self.sbc = SpeedBumpController()
-    self.rbc = SpeedBumpController()
+    self.rbc = SpeedBumpController(hold_vanished=False, stale_timeout=ROUNDABOUT_STALE_TIMEOUT)
+    self.ring_filter = RingFilter()
     self.rlc = RedLightController()
     self.slc = SpeedLimitController(self)
 
@@ -137,7 +139,8 @@ class FrogPilotVCruise:
 
       # Roundabouts, with the same settings: slowed for by the give-way line at a speed from the ring's size, then let go
       # (see roundabout_controller). Its deceleration request is combined with the bump's in frogpilot_planner
-      has_roundabout = mapd_alive and sm["mapdOut"].hasNextRoundabout
+      has_roundabout = self.ring_filter.update(mapd_alive and sm["mapdOut"].hasNextRoundabout, sm["mapdOut"].nextRoundaboutDistance,
+                                               sm["mapdOut"].nextRoundaboutDiameter, v_ego)
       entry_speed = roundabout_speed(sm["mapdOut"].nextRoundaboutDiameter) if has_roundabout else None
       roundabout_distance = sm["mapdOut"].nextRoundaboutDistance - ENTRY_OFFSET if has_roundabout else 0.0
       roundabout_target, _ = self.rbc.update(long_control_active, entry_speed is not None, roundabout_distance, v_ego,

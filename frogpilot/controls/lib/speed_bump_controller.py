@@ -110,7 +110,12 @@ def required_decel(distance, v_ego, config=DEFAULT_CONFIG, ease_distance=0.0):
   return braking_distance(v_ego, config.v_target, 1.0) / max(remaining, MIN_STOP_DISTANCE)
 
 class SpeedBumpController:
-  def __init__(self):
+  def __init__(self, hold_vanished=True, stale_timeout=STALE_TIMEOUT):
+    # Keep braking for a bump mapd stops reporting while it is still being braked for: mapd moves on as soon as a bump's middle is
+    # crossed. A roundabout is reported up to its entry, so one that vanishes further out than PASSED_WINDOW was never there, and
+    # is let go of after "stale_timeout" rather than braked for all the way to where it was
+    self.hold_vanished = hold_vanished
+    self.stale_timeout = stale_timeout
     self.reset()
 
   def reset(self):
@@ -208,7 +213,7 @@ class SpeedBumpController:
         self.passed_distance = None
 
     # Once braking for it or this close, a bump that vanishes or jumps away has most likely just been passed, so keep holding for it
-    committed = self.confirmed and (self.braking or self.tracked_distance <= PASSED_WINDOW)
+    committed = self.confirmed and ((self.braking and self.hold_vanished) or self.tracked_distance <= PASSED_WINDOW)
 
     if has_bump and math.isfinite(distance):
       if self.tracked_distance is not None and abs(distance - self.tracked_distance) <= SAME_BUMP_TOLERANCE:
@@ -247,7 +252,7 @@ class SpeedBumpController:
     elif self.tracked_distance is not None:
       self.unseen_time += dt
 
-    if self.tracked_distance is not None and not committed and self.unseen_time > 0 and (not self.confirmed or self.unseen_time > STALE_TIMEOUT):
+    if self.tracked_distance is not None and not committed and self.unseen_time > 0 and (not self.confirmed or self.unseen_time > self.stale_timeout):
       self.forget()
 
     if self.tracked_distance is not None and self.tracked_distance < -self.hold_end:

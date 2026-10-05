@@ -9,10 +9,17 @@ CONTROL_N_T_IDX = ModelConstants.T_IDXS[:CONTROL_N]
 
 LongCtrlState = car.CarControl.Actuators.LongControlState
 
+# FrogPilot: the planner says stop once its plan is below vEgoStopping a second ahead, which behind a lead came while the car was
+# still doing up to 1.3 m/s. The stopping state then hands the stop to the car, and a VW told to stop (ACC_Anhalten) finishes it
+# itself within ACC_Anhalteweg, 0.3 m: from 1.1-1.3 m/s that braked at 2.4-2.8 m/s^2 in the last moment and the car lurched to a
+# halt (drives 275-27e, accelerometer: the peak followed v^2 / 0.6 m at r = -0.93). Red lights, which the car reaches at a crawl,
+# were handed over at 0.04-0.18 m/s and stopped smoothly, so the PID keeps following the plan down to this speed first
+STOPPING_HANDOFF_SPEED = 0.25  # m/s
+
 
 def long_control_state_trans(CP, active, long_control_state, v_ego,
                              should_stop, brake_pressed, cruise_standstill, frogpilot_toggles):
-  stopping_condition = should_stop
+  stopping_condition = should_stop and v_ego < STOPPING_HANDOFF_SPEED
   starting_condition = (not should_stop and
                         not cruise_standstill and
                         not brake_pressed)
