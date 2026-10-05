@@ -16,11 +16,32 @@ static constexpr int DM_GREEN_DELAY_MIN = 1;
 AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bool forceOpen) : FrogPilotListWidget(parent), parent(parent) {
   forceOpenDescriptions = forceOpen;
 
+  QStackedLayout *aidenirsLayout = new QStackedLayout();
+  addItem(aidenirsLayout);
+
+  FrogPilotListWidget *aidenirsList = new FrogPilotListWidget(this);
+  ScrollView *aidenirsPanel = new ScrollView(aidenirsList, this);
+  aidenirsLayout->addWidget(aidenirsPanel);
+
+  // One submenu per topic, opened from its button in "aidenirsList"
+  std::map<QString, FrogPilotListWidget*> subLists;
+  std::map<QString, ScrollView*> subPanels;
+  for (const auto &[category, keys] : categoryKeys) {
+    subLists[category] = new FrogPilotListWidget(this);
+    subPanels[category] = new ScrollView(subLists[category], this);
+    aidenirsLayout->addWidget(subPanels[category]);
+  }
+
   for (int i = DM_GREEN_DELAY_MIN; i <= DM_CRITICAL_DELAY_MAX; ++i) {
     secondLabels[i] = i == 1 ? tr("1 second") : QString::number(i) + tr(" seconds");
   }
 
   const std::vector<std::tuple<QString, QString, QString, QString>> aidenirsToggles {
+    {"AidenirsDriverMonitoring",
+     tr("Driver Monitoring"),
+     tr("<b>When the driver monitoring alerts start, and how it is shown on the driving screen.</b>"),
+     ""},
+
     {"DMGreenAlertDelay",
      tr("Green Alert Delay"),
      tr("<b>Seconds after looking away before the green \"Pay Attention\" visual alert appears.</b><br><br>"
@@ -52,6 +73,11 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "running exactly as before; only the icon goes. The \"Attention Budget Bar\" shows how it's doing instead."),
      ""},
 
+    {"AidenirsDrivingScreen",
+     tr("Driving Screen"),
+     tr("<b>Where the Experimental Mode icon goes, and the massage reminder.</b>"),
+     ""},
+
     {"CEMStatusTop",
      tr("Experimental Mode Icon At The Top"),
      tr("<b>Show the \"Conditional Experimental Mode\" icon at the top, beside the set speed and speed limit,</b> instead of at the bottom "
@@ -63,9 +89,30 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      tr("<b>Enable periodic reminders to turn on the massage function.</b> A gentle prompt will appear every 10 minutes while driving."),
      ""},
 
+    {"AidenirsSpeedBumps",
+     tr("Speed Bumps"),
+     tr("<b>Speed bump warnings and icons, marking bumps the map is missing, and learning them from driving over them.</b>"),
+     ""},
+
     {"SpeedBumpUI",
      tr("Speed Bump Display"),
      tr("<b>Display the distance to the next mapped speed bump ahead.</b> Requires map data from <b>mapd</b>."),
+     ""},
+
+    {"SpeedBumpAlertDistance",
+     tr("Warning Distance"),
+     tr("<b>How far before a speed bump to warn.</b> The map marks the middle of the bump, so this is measured to that point. At 50 km/h, 10 metres is under a second of warning."),
+     ""},
+
+    {"SpeedBumpApproachIcon",
+     tr("Speed Bump And Roundabout Icons"),
+     tr("<b>Blink a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
+     ""},
+
+    {"SpeedBumpApproachIconDistance",
+     tr("Icon Distance"),
+     tr("<b>How far before a speed bump or roundabout its icon starts blinking.</b> Measured to where the bump starts, or to the "
+        "roundabout's give-way line."),
      ""},
 
     {"UserSpeedBumpButton",
@@ -88,17 +135,6 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "each direction. Long tables and bumps the map places a few metres off are corrected this way."),
      ""},
 
-    {"SpeedBumpApproachIcon",
-     tr("Speed Bump And Roundabout Icons"),
-     tr("<b>Blink a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
-     ""},
-
-    {"SpeedBumpApproachIconDistance",
-     tr("Speed Bump And Roundabout Icon Distance"),
-     tr("<b>How far before a speed bump or roundabout its icon starts blinking.</b> Measured to where the bump starts, or to the "
-        "roundabout's give-way line."),
-     ""},
-
     {"SpeedBumpDetect",
      tr("Learn Unmapped Speed Bumps"),
      tr("<b>Notice bumps the map is missing from how the car pitches over them.</b> Each one is only a suggestion until it has been "
@@ -108,20 +144,20 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      ""},
 
     {"SpeedBumpDetectThreshold",
-     tr("Bump Detection Sensitivity"),
+     tr("Detection Sensitivity"),
      tr("<b>How sharp a pitch (rad/s) counts as a bump.</b> Lower finds gentler bumps and cushions but also more potholes and "
         "tram tracks. 0.15 caught every mapped bump that was driven at normal speed on the recorded drives."),
      ""},
 
     {"SpeedBumpDetectPromoteDrives",
-     tr("Drives Before a Bump Is Learned"),
+     tr("Drives To Learn A Bump"),
      tr("<b>On how many separate drives a suggested bump must be felt before it becomes active.</b> A drive ends after 10 minutes stopped. "
         "0 never learns automatically; bumps then only become active when confirmed with the button."),
      ""},
 
-    {"SpeedBumpAlertDistance",
-     tr("Speed Bump Warning Distance"),
-     tr("<b>How far before a speed bump to warn.</b> The map marks the middle of the bump, so this is measured to that point. At 50 km/h, 10 metres is under a second of warning."),
+    {"SpeedBumpTileCountUI",
+     tr("Speed Bump Tile Count (Debug)"),
+     tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
      ""},
 
     {"SpeedBumpSlowdown",
@@ -132,21 +168,21 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      ""},
 
     {"SpeedBumpSlowdownSpeed",
-     tr("Speed Bump Speed"),
+     tr("Bump Speed"),
      tr("<b>The speed to drive over speed bumps at.</b> If your set speed is already lower, your set speed is kept."),
      ""},
 
     {"SpeedBumpSlowdownTime",
-     tr("Speed Bump Braking Point"),
+     tr("Braking Point"),
      tr("<b>Where braking starts: this many seconds before the bump, at the speed you're driving.</b> This is the knob that moves the braking point. "
         "The distance grows with speed: 3 seconds is about 25 metres at 30 km/h and 42 metres at 50 km/h. "
-        "Braking is then just firm enough to be at the \"Speed Bump Speed\" as the bump starts, so a later braking point means firmer braking. "
-        "If that would need more than the \"Speed Bump Max Braking\", what happens depends on \"Strict Braking Point\". "
-        "The speed is held until the car is past the bump (\"Speed Bump Hold Distance\")."),
+        "Braking is then just firm enough to be at the \"Bump Speed\" as the bump starts, so a later braking point means firmer braking. "
+        "If that would need more than the \"Max Braking\", what happens depends on \"Strict Braking Point\". "
+        "The speed is held until the car is past the bump (\"Hold Distance\")."),
      ""},
 
     {"SpeedBumpSlowdownMaxDecel",
-     tr("Speed Bump Max Braking"),
+     tr("Max Braking"),
      tr("<b>The firmest braking allowed when slowing for a bump.</b> A safety limit, not the usual braking: normally braking is only as firm as the "
         "braking point needs. Lower it for gentler stops; braking then starts earlier at higher speeds. "
         "Getting from 50 to 20 km/h needs about 39 metres at 3.0 m/s² and 50 metres at 2.0 m/s². 3.5 m/s² is openpilot's own braking limit."),
@@ -154,67 +190,64 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"SpeedBumpSlowdownStrict",
      tr("Strict Braking Point"),
-     tr("<b>What to do when the braking point is too close to reach the bump speed within \"Speed Bump Max Braking\".</b><br><br>"
-        "<b>Off (default):</b> always reach the \"Speed Bump Speed\" at the bump. Braking starts earlier than the braking point when it has to, "
+     tr("<b>What to do when the braking point is too close to reach the bump speed within \"Max Braking\".</b><br><br>"
+        "<b>Off (default):</b> always reach the \"Bump Speed\" at the bump. Braking starts earlier than the braking point when it has to, "
         "e.g. about 39 metres instead of 28 at 50 km/h with the defaults.<br><br>"
-        "<b>On:</b> never start braking before the braking point. Braking is at most \"Speed Bump Max Braking\", so at higher speeds the car "
-        "reaches the bump faster than the \"Speed Bump Speed\" (about 35 km/h from 50 km/h with the defaults)."),
+        "<b>On:</b> never start braking before the braking point. Braking is at most \"Max Braking\", so at higher speeds the car "
+        "reaches the bump faster than the \"Bump Speed\" (about 35 km/h from 50 km/h with the defaults)."),
      ""},
 
     {"SpeedBumpSlowdownResponseTime",
-     tr("Speed Bump Car Response Time"),
+     tr("Car Response Time"),
      tr("<b>How long the car takes to react to a braking request.</b> Braking is planned this much earlier to make up for it, and eased off a "
-        "little earlier still. Raise it if the car reaches bumps faster than the \"Speed Bump Speed\"; lower it if it slows down too early "
+        "little earlier still. Raise it if the car reaches bumps faster than the \"Bump Speed\"; lower it if it slows down too early "
         "or dips below it."),
      ""},
 
     {"SpeedBumpSlowdownMargin",
-     tr("Speed Bump Arrival Margin"),
-     tr("<b>How far before the bump to already be at the \"Speed Bump Speed\".</b> Measured to where the bump starts when its length is known "
-        "(tables, see \"Speed Bump Table Length\"), otherwise to its middle, which is what the map marks: there about half a bump's length "
+     tr("Arrival Margin"),
+     tr("<b>How far before the bump to already be at the \"Bump Speed\".</b> Measured to where the bump starts when its length is known "
+        "(tables, see \"Table Length\"), otherwise to its middle, which is what the map marks: there about half a bump's length "
         "(2 metres) means being slow as the bump starts. Raise it to be slow earlier."),
      ""},
 
     {"SpeedBumpSlowdownCEMDelay",
-     tr("Speed Bump Experimental Mode Hold-Off"),
+     tr("Experimental Mode Delay"),
      tr("<b>Keep \"Conditional Experimental Mode\" from switching on because of the low speed while slowing for a bump, and for this many "
         "seconds after.</b> Slowing for a bump drops the car below the Conditional Experimental Mode speed, and Experimental Mode then crept "
         "over the bump and pulled away slowly. Only the speed condition is held off: leads, curves and stop lights still switch it on."),
      ""},
 
     {"SpeedBumpMildExtraSpeed",
-     tr("Speed Bump Extra Speed For Mild Bumps"),
-     tr("<b>How much faster than the \"Speed Bump Speed\" to take a bump that has been learned to be barely felt.</b> It is scaled down "
+     tr("Mild Bump Extra Speed"),
+     tr("<b>How much faster than the \"Bump Speed\" to take a bump that has been learned to be barely felt.</b> It is scaled down "
         "the harsher the bump was felt to be, to no extra speed for a harsh one. Only bumps learned from driving over them (\"Learn Speed Bumps "
-        "From Driving Over Them\") are affected. Set to 0 to always use the \"Speed Bump Speed\"."),
+        "From Driving Over Them\") are affected. Set to 0 to always use the \"Bump Speed\"."),
      ""},
 
     {"SpeedBumpSlowdownTableLength",
-     tr("Speed Bump Table Length"),
+     tr("Table Length"),
      tr("<b>How long a raised table (a long flat-topped bump, often a raised crossing) is, when the map doesn't say.</b> "
         "The map only marks a table's middle, so braking aims for half this length before it, and the speed is held until it's crossed. "
         "If the car still reaches a table too fast, raise it; if it slows too early, lower it. Set to 0 to treat tables like any other bump."),
      ""},
 
     {"SpeedBumpSlowdownHold",
-     tr("Speed Bump Hold Distance"),
-     tr("<b>How far past the bump to keep the \"Speed Bump Speed\" before speeding up again.</b> Measured from the end of the bump when its "
+     tr("Hold Distance"),
+     tr("<b>How far past the bump to keep the \"Bump Speed\" before speeding up again.</b> Measured from the end of the bump when its "
         "length is known (tables), otherwise from its middle. The default of 6 metres gets the rear wheels over a typical bump; lower it to "
         "speed up sooner."),
      ""},
 
     {"SpeedBumpSlowdownJerk",
-     tr("Speed Bump Braking Smoothness"),
+     tr("Braking Smoothness"),
      tr("<b>How quickly braking builds up and eases off.</b> 1.0 follows the usual comfort limits for cruise control (faster at low speed, "
         "slower at high speed). Lower is smoother but needs an earlier braking point for the same result; higher is more abrupt."),
      ""},
 
-    {"OvertakeSuggestion",
-     tr("Suggest Overtaking"),
-     tr("<b>Ask \"Initiate overtake?\" on screen when following a car well under the speed limit</b> (10 km/h or more, from 30 km/h) "
-        "on a road with another lane on the left going the same way, after 3 seconds of it. It only asks: the car does nothing. "
-        "The lane comes from <b>mapd</b>'s map data where it has a lane count, from the camera where it doesn't; the second line "
-        "says which. A first step towards automatic overtaking, to see whether the detection is right."),
+    {"AidenirsRefugeIslands",
+     tr("Refuge Islands"),
+     tr("<b>Keeping right of refuge islands in the middle of the road, and marking the ones the map is missing.</b>"),
      ""},
 
     {"RefugeIslandNudge",
@@ -239,16 +272,33 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
         "in both directions. Hold the button to undo the last mark."),
      ""},
 
-    {"SpeedBumpTileCountUI",
-     tr("Speed Bump Tile Count (Debug)"),
-     tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
+    {"AidenirsOvertaking",
+     tr("Overtaking"),
+     tr("<b>Suggesting an overtake when stuck behind a slow car.</b>"),
+     ""},
+
+    {"OvertakeSuggestion",
+     tr("Suggest Overtaking"),
+     tr("<b>Ask \"Initiate overtake?\" on screen when following a car well under the speed limit</b> (10 km/h or more, from 30 km/h) "
+        "on a road with another lane on the left going the same way, after 3 seconds of it. It only asks: the car does nothing. "
+        "The lane comes from <b>mapd</b>'s map data where it has a lane count, from the camera where it doesn't; the second line "
+        "says which. A first step towards automatic overtaking, to see whether the detection is right."),
      ""},
   };
 
   for (const auto &[param, title, desc, icon] : aidenirsToggles) {
     AbstractControl *aidenirsToggle;
 
-    if (param == "SpeedBumpAlertDistance") {
+    if (categoryKeys.count(param) && param != "SpeedBumpSlowdown") {
+      ButtonControl *categoryButton = new ButtonControl(title, tr("MANAGE"), desc);
+      QObject::connect(categoryButton, &ButtonControl::clicked, [aidenirsLayout, panel = subPanels[param], this]() {
+        aidenirsLayout->setCurrentWidget(panel);
+        emit openSubPanel();
+        openDescriptions(forceOpenDescriptions, toggles);
+      });
+      aidenirsToggle = categoryButton;
+
+    } else if (param == "SpeedBumpAlertDistance") {
       aidenirsToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5, 100, tr(" meters"), std::map<float, QString>(), 5, true);
 
     } else if (param == "SpeedBumpSlowdownSpeed") {
@@ -306,8 +356,14 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
       aidenirsToggle = detectToggle;
 
     } else if (param == "SpeedBumpSlowdown") {
-      ParamControl *slowdownToggle = new ParamControl(param, title, desc, icon);
+      // Both the switch and the way into its settings, which only matter while it's on
+      FrogPilotManageControl *slowdownToggle = new FrogPilotManageControl(param, title, desc, icon);
       QObject::connect(slowdownToggle, &ToggleControl::toggleFlipped, this, &AidenirsSettingsPanel::updateToggles);
+      QObject::connect(slowdownToggle, &FrogPilotManageControl::manageButtonClicked, [aidenirsLayout, panel = subPanels[param], this]() {
+        aidenirsLayout->setCurrentWidget(panel);
+        emit openSubPanel();
+        openDescriptions(forceOpenDescriptions, toggles);
+      });
       aidenirsToggle = slowdownToggle;
 
     } else if (driverMonitoringDelayKeys.contains(param)) {
@@ -327,7 +383,12 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     toggles[param] = aidenirsToggle;
 
-    addItem(aidenirsToggle);
+    QString category = categoryOf(param);
+    if (category.isEmpty()) {
+      aidenirsList->addItem(aidenirsToggle);
+    } else {
+      subLists[category]->addItem(aidenirsToggle);
+    }
 
     QObject::connect(aidenirsToggle, &AbstractControl::hideDescriptionEvent, [this]() {
       update();
@@ -340,6 +401,20 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
   updateDelayRanges();
 
   openDescriptions(forceOpenDescriptions, toggles);
+
+  QObject::connect(parent, &FrogPilotSettingsWindow::closeSubPanel, [aidenirsLayout, aidenirsPanel, this] {
+    openDescriptions(forceOpenDescriptions, toggles);
+    aidenirsLayout->setCurrentWidget(aidenirsPanel);
+  });
+}
+
+QString AidenirsSettingsPanel::categoryOf(const QString &key) const {
+  for (const auto &[category, keys] : categoryKeys) {
+    if (keys.contains(key)) {
+      return category;
+    }
+  }
+  return QString();
 }
 
 void AidenirsSettingsPanel::showEvent(QShowEvent *event) {
@@ -374,7 +449,14 @@ void AidenirsSettingsPanel::updateDelayRanges() {
 void AidenirsSettingsPanel::updateToggles() {
   updateDelayRanges();
 
+  // A topic's button only shows while something in its submenu does (or, for "SpeedBumpSlowdown", while it can be used)
+  std::set<QString> visibleCategories;
+
   for (auto &[key, toggle] : toggles) {
+    if (categoryKeys.count(key) && key != "SpeedBumpSlowdown") {
+      continue;
+    }
+
     bool setVisible = parent->tuningLevel >= parent->frogpilotToggleLevels[key].toDouble();
 
     if (key == "SpeedBumpDetectThreshold" || key == "SpeedBumpDetectPromoteDrives") {
@@ -388,6 +470,16 @@ void AidenirsSettingsPanel::updateToggles() {
     }
 
     toggle->setVisible(setVisible);
+
+    if (setVisible && !categoryOf(key).isEmpty()) {
+      visibleCategories.insert(categoryOf(key));
+    }
+  }
+
+  for (const auto &[category, keys] : categoryKeys) {
+    if (category != "SpeedBumpSlowdown") {
+      toggles[category]->setVisible(visibleCategories.count(category));
+    }
   }
 
   openDescriptions(forceOpenDescriptions, toggles);
