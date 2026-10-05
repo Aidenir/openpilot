@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from cereal import log
 from openpilot.common.realtime import DT_DMON
@@ -210,3 +211,47 @@ class TestMonitoring:
     assert EventName.driverUnresponsive in \
                               events[int((INVISIBLE_SECONDS_TO_RED-1+DT_DMON*d_status.settings._HI_STD_FALLBACK_TIME+0.1)/DT_DMON)].names
 
+
+
+class TestShippedDelays:
+  # The tests above run at upstream's timing. This pins what the car actually runs with: the DM delay settings' defaults
+  # (green 5 s, beeping 15 s, red 30 s of distraction), and the bounds the settings are clamped to, so a change to either is
+  # deliberate
+  SHIPPED = {"DMGreenAlertDelay": 5, "DMBeepingDelay": 15, "DMCriticalDelay": 30}
+
+  def test_defaults_match_params_keys(self):
+    import re
+    from openpilot.common.basedir import BASEDIR
+    with open(f"{BASEDIR}/common/params_keys.h") as f:
+      keys = f.read()
+    for key, seconds in self.SHIPPED.items():
+      assert re.search(rf'{{"{key}", {{PERSISTENT, INT, "{seconds}"', keys), key
+    settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type())
+    assert settings._DISTRACTED_TIME == 30.0
+    assert settings._DISTRACTED_PRE_TIME_TILL_TERMINAL == 25.0
+    assert settings._DISTRACTED_PROMPT_TIME_TILL_TERMINAL == 15.0
+
+  def test_alert_times_at_the_shipped_delays(self):
+    settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type())
+    DM = DriverMonitoring(settings=settings)
+    first = {}
+    for idx in range(int(TEST_TIMESPAN / DT_DMON)):
+      DM._update_states(msg_DISTRACTED, [0, 0, 0], 0, True, False)
+      DM._update_events(False, True, False, 0, 0)
+      for name in DM.current_events.names:
+        first.setdefault(name, idx * DT_DMON)
+    assert first[EventName.preDriverDistracted] == pytest.approx(5.0, abs=0.3)
+    assert first[EventName.promptDriverDistracted] == pytest.approx(15.0, abs=0.3)
+    assert first[EventName.driverDistracted] == pytest.approx(30.0, abs=0.3)
+
+  def test_settings_are_clamped(self):
+    class Delays:
+      def __init__(self, green, beeping, critical):
+        self.values = {"DMGreenAlertDelay": green, "DMBeepingDelay": beeping, "DMCriticalDelay": critical}
+      def get(self, key):
+        return self.values[key]
+    settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type(), params=Delays(500, 500, 500))
+    assert settings._DISTRACTED_TIME == 120.0
+    assert settings._DISTRACTED_PROMPT_TIME_TILL_TERMINAL >= 1.0
+    settings = DRIVER_MONITOR_SETTINGS(device_type=HARDWARE.get_device_type(), params=Delays(1, 1, 1))
+    assert settings._DISTRACTED_TIME == 5.0
