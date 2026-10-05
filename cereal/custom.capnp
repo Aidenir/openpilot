@@ -88,7 +88,7 @@ struct FrogPilotCarState @0xf35cc4560bbf6ec2 {
     open @0 :Bool;
     items @1 :List(Text);  # by arm: +, -, SET, RES; "" for an empty arm
     selected @2 :Int8;     # the arm just chosen, shown briefly after the menu closes; -1 if none
-    cameraSwitches @3 :UInt32;  # times the camera arm was chosen: the UI swaps between the wide and narrow camera on each change
+    cameraMode @3 :UInt8;  # the onroad camera picked with the camera arm: 0 openpilot's own choice, 1 wide road, 2 narrow road
   }
 }
 

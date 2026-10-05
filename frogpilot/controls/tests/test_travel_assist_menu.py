@@ -130,7 +130,7 @@ def test_published_state():
   fpcs = custom.FrogPilotCarState.new_message()
   d.menu.publish(fpcs.travelAssistMenu)
   assert fpcs.travelAssistMenu.open and fpcs.travelAssistMenu.selected == -1
-  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "CAMERA", "", ""]
+  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "WIDE CAM", "", ""]
   d.step((PLUS, True))
   d.step((PLUS, False))
   d.menu.publish(fpcs.travelAssistMenu)
@@ -140,17 +140,22 @@ def test_published_state():
   assert fpcs.travelAssistMenu.selected == -1
 
 
-def test_minus_switches_the_camera():
+def test_minus_steps_through_default_wide_and_narrow():
   assert ITEMS[1] == "camera"
   d = Driver()
   fpcs = custom.FrogPilotCarState.new_message()
-  for switches in (1, 2):
+  d.menu.publish(fpcs.travelAssistMenu)
+  assert fpcs.travelAssistMenu.cameraMode == 0  # openpilot's own choice until one is picked
+  for mode, label in ((1, "WIDE CAM"), (2, "NARROW CAM"), (0, "DEFAULT CAM"), (1, "WIDE CAM")):
     d.press_travel_assist()
+    d.menu.publish(fpcs.travelAssistMenu)
+    assert fpcs.travelAssistMenu.items[1] == label  # open: where it goes next
     d.step((MINUS, True))
     CS, choice = d.step((MINUS, False))
     assert choice == "camera" and types(CS) == [] and not d.menu.open
     d.menu.publish(fpcs.travelAssistMenu)
-    assert fpcs.travelAssistMenu.cameraSwitches == switches
+    assert fpcs.travelAssistMenu.cameraMode == mode
+    assert fpcs.travelAssistMenu.items[1] == label  # just chosen: where it went
   # - with the menu closed is the driver's set speed again
   CS, _ = d.step((MINUS, True))
   assert types(CS) == [(MINUS, True)]

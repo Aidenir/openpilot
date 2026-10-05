@@ -210,25 +210,19 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       }
       wide_cam_requested = wide_cam_requested && sm["selfdriveState"].getSelfdriveState().getExperimentalMode() && frogpilot_toggles.value("camera_view").toInt() == 0;
     }
-    // Each time the Travel Assist menu's camera arm is chosen, swap to the other road camera than the one showing, until the UI
-    // restarts. The first count seen is only taken note of, so a UI restart mid-drive doesn't swap
-    int64_t camera_switches = frogpilot_nvg->travelAssistCameraSwitches;
-    if (camera_switches != travel_assist_camera_switches) {
-      if (travel_assist_camera_switches >= 0 && has_wide_cam) {
-        travel_assist_camera = getStreamType() == VISION_STREAM_WIDE_ROAD ? VISION_STREAM_ROAD : VISION_STREAM_WIDE_ROAD;
-      }
-      travel_assist_camera_switches = camera_switches;
-    }
-
+    // The Travel Assist menu's camera arm: 1 forces the wide road camera, 2 the narrow one, 0 leaves it to the above. Driver view
+    // still wins
+    int travel_assist_camera = frogpilot_nvg->travelAssistCameraMode;
     if (frogpilot_toggles.value("camera_view").toInt() == 1) {
       CameraWidget::setStreamType(VISION_STREAM_DRIVER);
-    } else if (travel_assist_camera >= 0 && has_wide_cam) {
-      CameraWidget::setStreamType(static_cast<VisionStreamType>(travel_assist_camera));
+    } else if (travel_assist_camera == 1 && has_wide_cam) {
+      CameraWidget::setStreamType(VISION_STREAM_WIDE_ROAD);
+    } else if (travel_assist_camera == 2) {
+      CameraWidget::setStreamType(VISION_STREAM_ROAD);
     } else {
       CameraWidget::setStreamType(frogpilot_toggles.value("camera_view").toInt() == 3 || wide_cam_requested ? VISION_STREAM_WIDE_ROAD :
                                   VISION_STREAM_ROAD);
     }
-    frogpilot_nvg->showingWideCamera = getStreamType() == VISION_STREAM_WIDE_ROAD;
     CameraWidget::setFrameId(sm["modelV2"].getModelV2().getFrameId());
 
     watchdog_stage("paint:before_begin_native");

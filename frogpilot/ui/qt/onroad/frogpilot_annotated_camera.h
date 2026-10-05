@@ -45,9 +45,8 @@ public:
 
   QRect markButtonsRect;
 
-  // The Travel Assist menu's camera arm (see AnnotatedCameraWidget::paintEvent)
-  uint32_t travelAssistCameraSwitches = 0;
-  bool showingWideCamera = false;  // set by AnnotatedCameraWidget, for the camera arm's label
+  // The Travel Assist menu's camera arm (see AnnotatedCameraWidget::paintEvent): 0 openpilot's own choice, 1 wide, 2 narrow
+  int travelAssistCameraMode = 0;
 
   QPolygonF track_adjacent_vertices[2];
   QPolygonF track_edge_vertices;

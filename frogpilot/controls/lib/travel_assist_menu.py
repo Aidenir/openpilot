@@ -13,10 +13,13 @@ from opendbc.car import DT_CTRL, ButtonType, structs
 
 ARMS = (ButtonType.accelCruise, ButtonType.decelCruise, ButtonType.setCruise, ButtonType.resumeCruise)  # +, -, SET, RES
 
-# What each arm does, by arm; None leaves it empty. "camera" swaps the onroad view between the wide and the narrow road camera
-# (the UI does it, see AnnotatedCameraWidget; it shows this arm as the view it would switch to)
+# What each arm does, by arm; None leaves it empty. "camera" steps the onroad view through CAMERA_MODES: openpilot's own choice,
+# the wide road camera, the narrow one, and back (the UI does it, see AnnotatedCameraWidget). Its arm shows the mode it goes to
 ITEMS = ("refuge_island", "camera", None, None)
-LABELS = {"refuge_island": "MARK ISLAND", "camera": "CAMERA"}
+LABELS = {"refuge_island": "MARK ISLAND"}
+
+CAMERA_MODES = ("default", "wide", "narrow")  # frogpilotCarState.travelAssistMenu.cameraMode, by index
+CAMERA_LABELS = {"default": "DEFAULT CAM", "wide": "WIDE CAM", "narrow": "NARROW CAM"}
 
 TIMEOUT = 5.0        # s without a cruise button press before the menu closes on its own
 SELECTED_TIME = 1.0  # s the chosen arm stays lit after the menu closes
@@ -33,7 +36,7 @@ class TravelAssistMenu:
     self.captured = set()  # cruise buttons pressed while the menu was open, until they are let go
     self.press_ms = {}     # wall-clock ms each captured button was pressed at
     self.choice_ms = 0     # when the arm chosen last was pressed: a mark is placed where the car was then, not at the release
-    self.camera_switches = 0  # times "camera" was chosen; the UI swaps the view on each change
+    self.camera_mode = 0   # index into CAMERA_MODES, until card restarts (the next drive)
 
   def close(self):
     self.open = False
@@ -77,7 +80,7 @@ class TravelAssistMenu:
               choice = ITEMS[arm]
               self.choice_ms = self.press_ms.get(be.type, now_ms)
               if choice == "camera":
-                self.camera_switches += 1
+                self.camera_mode = (self.camera_mode + 1) % len(CAMERA_MODES)
               self.selected = arm
               self.selected_time = 0.0
               self.close()
@@ -106,6 +109,13 @@ class TravelAssistMenu:
   def publish(self, menu):
     """Fills a FrogPilotCarState.TravelAssistMenu builder"""
     menu.open = self.open
-    menu.items = [LABELS.get(item, "") if item else "" for item in ITEMS]
+    menu.items = [self.label(item) for item in ITEMS]
     menu.selected = self.selected
-    menu.cameraSwitches = self.camera_switches
+    menu.cameraMode = self.camera_mode
+
+  def label(self, item):
+    if item == "camera":
+      # Open, the mode it would switch to; just chosen, the one it switched to
+      mode = self.camera_mode if not self.open else (self.camera_mode + 1) % len(CAMERA_MODES)
+      return CAMERA_LABELS[CAMERA_MODES[mode]]
+    return LABELS.get(item, "") if item else ""

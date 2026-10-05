@@ -37,9 +37,6 @@ private:
 
   int skip_frame_count = 0;
   bool wide_cam_requested = false;
-  // The Travel Assist menu's camera arm: the road camera it picked (-1 for none), and its switch count last seen (-1 before any)
-  int travel_assist_camera = -1;
-  int64_t travel_assist_camera_switches = -1;
 
   // FrogPilot variables
   void paintEvent(QPaintEvent *event) override;
