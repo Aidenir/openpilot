@@ -29,6 +29,7 @@ class FrogPilotCard:
 
     self.gap_counter = 0
     self.refuge_island_request_id = 0
+    self.speed_limit_request_id = 0
     self.speed_bump_request_id = 0
 
     self.travel_assist_menu = TravelAssistMenu()
@@ -80,12 +81,25 @@ class FrogPilotCard:
       "source": "wheel",
     })
 
+  def request_speed_limit(self, tap_ms, sign_limit):
+    # mapd makes "sign_limit" (m/s, 0 if no sign has been read) the limit of the road the car is on, or drops its correction if the
+    # map already agrees, and answers in UserSpeedLimitResult (shown by FrogPilotEvents)
+    self.speed_limit_request_id = max(tap_ms, self.speed_limit_request_id + 1)
+    self.params_memory.put("UserSpeedLimitRequest", {
+      "id": self.speed_limit_request_id,
+      "tapMs": tap_ms,
+      "speedMs": float(sign_limit),
+    })
+
   def update_travel_assist_menu(self, carState, frogpilotCarState):
     """Runs before the set speed and engagement logic see carState's button events, so the menu can take the cruise buttons"""
     now_ms = int(time.time() * 1000)  # noqa: TID251  mapd works in wall-clock milliseconds
+    self.travel_assist_menu.sign_limit = frogpilotCarState.signSpeedLimit
     choice = self.travel_assist_menu.update(carState, frogpilotCarState.travelAssistPressed, now_ms)
     if choice == "refuge_island":
       self.request_refuge_island(self.travel_assist_menu.choice_ms)
+    elif choice == "speed_limit":
+      self.request_speed_limit(self.travel_assist_menu.choice_ms, frogpilotCarState.signSpeedLimit)
 
   def handle_experimental_mode(self, sm, frogpilot_toggles):
     if frogpilot_toggles.conditional_experimental_mode:

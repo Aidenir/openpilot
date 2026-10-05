@@ -149,6 +149,10 @@ class CarState(CarStateBase):
     # are read: GRA_ACC_01's bit 30 (MQB Evo / MEB) and the steering wheel key code 0x74 (MEB's MFL_01 table)
     fp_ret.travelAssistPressed = bool(pt_cp.vl["GRA_ACC_01"]["GRA_Travel_Assist"]) or \
                                  pt_cp.vl["MFL_Tasten"]["MFL_Tastencode"] == MFL_TRAVEL_ASSIST
+    # The cluster's speed limit from sign recognition, 0 before the first one (see get_can_parsers)
+    if Bus.alt in can_parsers:
+      sign_limit = can_parsers[Bus.alt].vl["VZE_Anzeige_FP"]["VZE_Tempolimit"]
+      fp_ret.signSpeedLimit = sign_limit * CV.KPH_TO_MS if 5 <= sign_limit <= 150 else 0.0
 
     return ret, fp_ret
 
@@ -348,10 +352,15 @@ class CarState(CarStateBase):
         ("HCA_01", 1),  # From R242 Driver assistance camera, 50Hz if steering/1Hz if not
       ]
 
-    return {
+    parsers = {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], pt_messages, CanBus(CP).pt),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], cam_messages, CanBus(CP).cam),
     }
+    if not CP.flags & VolkswagenFlags.MLB and CP.networkLocation == NetworkLocation.gateway:
+      # FrogPilot: the speed limit the instrument cluster shows from sign recognition, on the powertrain CAN (the "aux" bus of a
+      # gateway install). Only sent when it changes, so its rate isn't checked: a car without it can never fault for it
+      parsers[Bus.alt] = CANParser(DBC[CP.carFingerprint][Bus.pt], [("VZE_Anzeige_FP", float('nan'))], CanBus(CP).aux)
+    return parsers
 
   @staticmethod
   def get_can_parsers_pq(CP):

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from opendbc.car import DT_CTRL, ButtonType, structs
+from opendbc.car.common.conversions import Conversions as CV
 
 # An onroad menu on the steering wheel. openpilot has no use for VW's Travel Assist button, so a press opens a cross on screen
 # whose four arms are chosen with the cruise buttons: + (up), - (down), SET (left) and RES (right). Another Travel Assist press,
@@ -14,8 +15,10 @@ from opendbc.car import DT_CTRL, ButtonType, structs
 ARMS = (ButtonType.accelCruise, ButtonType.decelCruise, ButtonType.setCruise, ButtonType.resumeCruise)  # +, -, SET, RES
 
 # What each arm does, by arm; None leaves it empty. "camera" steps the onroad view through CAMERA_MODES: openpilot's own choice,
-# the wide road camera, the narrow one, and back (the UI does it, see AnnotatedCameraWidget). Its arm shows the mode it goes to
-ITEMS = ("refuge_island", "camera", None, None)
+# the wide road camera, the narrow one, and back (the UI does it, see AnnotatedCameraWidget). Its arm shows the mode it goes to.
+# "speed_limit" makes the limit the car's sign recognition shows the map's limit for the road the car is on (mapd's
+# user_speed_limits.json), for when OpenStreetMap hasn't caught up with a new sign. Its arm shows the reading it would use
+ITEMS = ("refuge_island", "camera", "speed_limit", None)
 LABELS = {"refuge_island": "MARK ISLAND"}
 
 CAMERA_MODES = ("default", "wide", "narrow")  # frogpilotCarState.travelAssistMenu.cameraMode, by index
@@ -37,6 +40,7 @@ class TravelAssistMenu:
     self.press_ms = {}     # wall-clock ms each captured button was pressed at
     self.choice_ms = 0     # when the arm chosen last was pressed: a mark is placed where the car was then, not at the release
     self.camera_mode = 0   # index into CAMERA_MODES, until card restarts (the next drive)
+    self.sign_limit = 0.0  # m/s, the car's sign recognition (frogpilotCarState.signSpeedLimit), set by the caller; 0 if none
 
   def close(self):
     self.open = False
@@ -114,6 +118,8 @@ class TravelAssistMenu:
     menu.cameraMode = self.camera_mode
 
   def label(self, item):
+    if item == "speed_limit":
+      return f"LIMIT {round(self.sign_limit * CV.MS_TO_KPH)}" if self.sign_limit > 0 else "NO SIGN"
     if item == "camera":
       # Open, the mode it would switch to; just chosen, the one it switched to
       mode = self.camera_mode if not self.open else (self.camera_mode + 1) % len(CAMERA_MODES)

@@ -506,6 +506,21 @@ def nnff_loaded_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMast
       Priority.LOW, VisualAlert.none, AudibleAlert.engage, 5.0)
 
 
+_params_memory = None
+
+
+def speed_limit_correction_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
+  # mapd's answer, e.g. "Speed limit 30 set" or "No speed limit sign read" (UserSpeedLimitResult)
+  global _params_memory
+  _params_memory = _params_memory or Params(memory=True)
+  result = _params_memory.get("UserSpeedLimitResult") or {}
+  return Alert(
+    result.get("message", "Speed limit correction"),
+    result.get("name", ""),
+    FrogPilotAlertStatus.frogpilot, AlertSize.mid,
+    Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 3.)
+
+
 def overtake_suggestion_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int, personality, frogpilot_toggles: SimpleNamespace) -> Alert:
   lead_speed = get_display_speed(sm["radarState"].leadOne.vLead, metric)
   speed_limit = get_display_speed(sm["frogpilotPlan"].overtakeSpeedLimit, metric)
@@ -1259,6 +1274,14 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
 
   FrogPilotEventName.overtakeSuggestion: {
     ET.PERMANENT: overtake_suggestion_alert,
+  },
+
+  FrogPilotEventName.speedLimitCorrected: {
+    ET.PERMANENT: speed_limit_correction_alert,
+  },
+
+  FrogPilotEventName.speedLimitCorrectionFailed: {
+    ET.PERMANENT: speed_limit_correction_alert,
   },
 
   FrogPilotEventName.massageReminder: {

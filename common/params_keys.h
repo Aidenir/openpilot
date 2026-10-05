@@ -509,6 +509,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     // Memory params shared with mapd, like UserSpeedBumpRequest/Result
     {"UserRefugeIslandRequest", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserRefugeIslandResult", {CLEAR_ON_MANAGER_START, JSON}},
+    {"UserSpeedLimitRequest", {CLEAR_ON_MANAGER_START, JSON}},
+    {"UserSpeedLimitResult", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserSpeedBumpButton", {PERSISTENT, BOOL, "0", "0", 1}},
     // Memory params (Params(memory=True)) shared with mapd: the UI writes the request, mapd the result
     {"UserSpeedBumpRequest", {CLEAR_ON_MANAGER_START, JSON}},

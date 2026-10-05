@@ -82,6 +82,7 @@ struct FrogPilotCarState @0xf35cc4560bbf6ec2 {
   trafficModeEnabled @13 :Bool;
   travelAssistPressed @14 :Bool;  # the steering wheel's Travel Assist button is held (VW)
   travelAssistMenu @15 :TravelAssistMenu;
+  signSpeedLimit @16 :Float32;  # m/s, the limit the car's own sign recognition shows (VW: 0x570 on the powertrain bus), 0 if none
 
   # The onroad menu the Travel Assist button opens, worked with the cruise buttons (see travel_assist_menu.py)
   struct TravelAssistMenu {
@@ -161,6 +162,8 @@ struct FrogPilotOnroadEvent @0xa5cd762cd951a455 {
     speedBumpIgnored @34;
     speedBumpIgnoreUndone @35;
     overtakeSuggestion @36;
+    speedLimitCorrected @37;
+    speedLimitCorrectionFailed @38;
   }
 }
 

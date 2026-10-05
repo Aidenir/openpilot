@@ -64,11 +64,25 @@ def test_plus_marks_an_island_and_takes_the_buttons():
 def test_set_and_res_never_engage_while_open():
   d = Driver()
   d.press_travel_assist()
-  for button in (SET, RES):
-    d.step((button, True))
-    CS, choice = d.step((button, False), button_enable=True)
-    assert not CS.buttonEnable and types(CS) == [] and choice is None
-  assert d.menu.open  # empty arms do nothing
+  d.step((RES, True))
+  CS, choice = d.step((RES, False), button_enable=True)
+  assert not CS.buttonEnable and types(CS) == [] and choice is None
+  assert d.menu.open  # an empty arm does nothing
+  d.step((SET, True))
+  CS, choice = d.step((SET, False), button_enable=True)
+  assert not CS.buttonEnable and types(CS) == [] and choice == "speed_limit"
+  assert not d.menu.open and d.menu.selected == 2
+
+
+def test_speed_limit_arm_shows_the_cars_reading():
+  d = Driver()
+  d.press_travel_assist()
+  fpcs = custom.FrogPilotCarState.new_message()
+  d.menu.publish(fpcs.travelAssistMenu)
+  assert fpcs.travelAssistMenu.items[2] == "NO SIGN"
+  d.menu.sign_limit = 30 / 3.6
+  d.menu.publish(fpcs.travelAssistMenu)
+  assert fpcs.travelAssistMenu.items[2] == "LIMIT 30"
 
 
 def test_a_release_after_the_menu_closed_is_still_taken():
@@ -118,8 +132,8 @@ def test_a_button_press_keeps_it_open():
   d = Driver()
   d.press_travel_assist()
   d.idle(TIMEOUT - 1.0)
-  d.step((SET, True))
-  d.step((SET, False))
+  d.step((RES, True))
+  d.step((RES, False))
   d.idle(TIMEOUT - 1.0)
   assert d.menu.open
 
@@ -130,7 +144,7 @@ def test_published_state():
   fpcs = custom.FrogPilotCarState.new_message()
   d.menu.publish(fpcs.travelAssistMenu)
   assert fpcs.travelAssistMenu.open and fpcs.travelAssistMenu.selected == -1
-  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "WIDE CAM", "", ""]
+  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "WIDE CAM", "NO SIGN", ""]
   d.step((PLUS, True))
   d.step((PLUS, False))
   d.menu.publish(fpcs.travelAssistMenu)
