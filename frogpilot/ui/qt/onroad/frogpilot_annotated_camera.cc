@@ -449,47 +449,190 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
 }
 
 void FrogPilotAnnotatedCameraWidget::paintTravelAssistMenu(QPainter &p) {
-  // A see-through cross in the middle of the screen, one arm per cruise button: + up, - down, SET left, RES right. Once an arm is
-  // chosen the menu closes and that arm alone stays lit for a moment
+  paintTravelAssistWheel(p, rect(), travelAssistMenuOpen, travelAssistSelected, travelAssistItems);
+}
+
+// A simple icon for a Travel Assist item, drawn in a "size" px square around "middle"
+static void paintTravelAssistIcon(QPainter &p, const QPointF &middle, int size, const QString &item, const QColor &color) {
+  p.save();
+  p.translate(middle);
+  p.scale(size / 100.0, size / 100.0);  // drawn on a 100 x 100 grid around (0, 0)
+
+  if (item.contains("ISLAND") || item.contains("MARK")) {
+    // A map pin over a traffic island
+    p.setPen(QPen(color, 6));
+    p.setBrush(Qt::NoBrush);
+    p.drawEllipse(QPointF(0, 38), 36, 10);
+
+    QPainterPath pin;
+    pin.moveTo(0, 38);
+    pin.cubicTo(-14, 14, -32, -2, -32, -18);
+    pin.arcTo(QRectF(-32, -50, 64, 64), 180, -180);
+    pin.cubicTo(32, -2, 14, 14, 0, 38);
+    pin.addEllipse(QPointF(0, -18), 12, 12);
+    pin.setFillRule(Qt::OddEvenFill);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    p.drawPath(pin);
+  } else if (item.contains("CAM")) {
+    // A camera, its lens wider or narrower with the view it goes to
+    float lens = item.contains("WIDE") ? 24 : item.contains("NARROW") ? 12 : 18;
+    QPainterPath body;
+    body.addRoundedRect(QRectF(-46, -26, 92, 64), 12, 12);
+    body.addRoundedRect(QRectF(-18, -38, 36, 16), 5, 5);
+    body.addEllipse(QPointF(0, 6), lens + 7, lens + 7);
+    body.setFillRule(Qt::OddEvenFill);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    p.drawPath(body.simplified());
+    p.drawEllipse(QPointF(0, 6), lens, lens);
+  } else if (item.contains("LIMIT") || item.contains("SPEED")) {
+    // A speed limit sign: red ring, white disc
+    p.setPen(QPen(QColor(220, 30, 30, color.alpha()), 12));
+    p.setBrush(QColor(255, 255, 255, color.alpha()));
+    p.drawEllipse(QPointF(0, 0), 42, 42);
+    p.setPen(QColor(0, 0, 0, color.alpha()));
+    p.setFont(InterFont(24, QFont::Bold));
+    p.drawText(QRectF(-36, -36, 72, 72), Qt::AlignCenter, "km/h");
+  } else {
+    // Anything else: a plain dot
+    p.setPen(QPen(color, 6));
+    p.setBrush(Qt::NoBrush);
+    p.drawEllipse(QPointF(0, 0), 30, 30);
+    p.setPen(Qt::NoPen);
+    p.setBrush(color);
+    p.drawEllipse(QPointF(0, 0), 14, 14);
+  }
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintTravelAssistWheel(QPainter &p, const QRect &area, bool open, int selected, const QStringList &items) {
+  // A dark see-through wheel in the middle of "area", one quarter per cruise button: + top, - bottom, SET left, RES right, each
+  // with its item's icon and label and a badge on the rim naming the button. Once an arm is chosen the menu closes and that
+  // quarter alone stays lit for a moment
   static const char *BUTTONS[] = {"+", "−", "SET", "RES"};
-  static const QPoint DIRECTIONS[] = {QPoint(0, -1), QPoint(0, 1), QPoint(-1, 0), QPoint(1, 0)};
+  static const QPointF DIRECTIONS[] = {QPointF(0, -1), QPointF(0, 1), QPointF(-1, 0), QPointF(1, 0)};
+  static const int START_ANGLES[] = {45, 225, 135, -45};  // degrees anticlockwise from 3 o'clock, each quarter spans 90
+
+  const QColor green(70, 220, 100);
+  const QPointF center = QRectF(area).center();
+  const float outer = 330;  // the wheel's radius
+  const float inner = 105;  // the "Close" circle's
+  const QRectF outerRect(center.x() - outer, center.y() - outer, 2 * outer, 2 * outer);
+  const QRectF innerRect(center.x() - inner, center.y() - inner, 2 * inner, 2 * inner);
 
   p.save();
   p.setRenderHint(QPainter::Antialiasing);
 
-  const QPoint center = rect().center();
-  const QSize arm(300, 150);
-  const int reach = 175;  // from the middle to an arm's middle
-
-  if (travelAssistMenuOpen) {
+  if (open) {
+    // A soft shadow round the wheel so its rim reads on a bright road
+    QRadialGradient halo(center, outer + 40);
+    halo.setColorAt(outer / (outer + 40) - 0.02, QColor(0, 0, 0, 90));
+    halo.setColorAt(1.0, QColor(0, 0, 0, 0));
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 90));
-    p.drawEllipse(center, 60, 60);
+    p.setBrush(halo);
+    p.drawEllipse(center, outer + 40, outer + 40);
+
+    QRadialGradient disc(center, outer);
+    disc.setColorAt(0.0, QColor(0, 0, 0, 190));
+    disc.setColorAt(1.0, QColor(10, 10, 10, 140));
+    p.setBrush(disc);
+    p.drawEllipse(center, outer, outer);
   }
 
   for (int i = 0; i < 4; i++) {
-    QString item = i < travelAssistItems.size() ? travelAssistItems[i] : QString();
-    bool chosen = travelAssistSelected == i;
-    if (!travelAssistMenuOpen && !chosen) {
+    QString item = i < items.size() ? items[i] : QString();
+    bool chosen = selected == i;
+    if (!open && !chosen) {
       continue;
     }
 
-    QPoint middle = center + DIRECTIONS[i] * reach;
-    QRect box(middle - QPoint(arm.width() / 2, arm.height() / 2), arm);
-    QColor edge = chosen ? QColor(80, 220, 100, 230) : item.isEmpty() ? QColor(255, 255, 255, 60) : QColor(255, 255, 255, 200);
+    // The quarter: a ring segment between the "Close" circle and the rim
+    QPainterPath quarter;
+    quarter.arcMoveTo(outerRect, START_ANGLES[i]);
+    quarter.arcTo(outerRect, START_ANGLES[i], 90);
+    quarter.arcTo(innerRect, START_ANGLES[i] + 90, -90);
+    quarter.closeSubpath();
 
-    p.setBrush(chosen ? QColor(20, 90, 40, 170) : QColor(0, 0, 0, item.isEmpty() ? 70 : 120));
-    p.setPen(QPen(edge, 5));
-    p.drawRoundedRect(box, 28, 28);
-
-    p.setPen(edge);
-    p.setFont(InterFont(34, QFont::Bold));
-    p.drawText(box.adjusted(0, 10, 0, -box.height() / 2), Qt::AlignHCenter | Qt::AlignTop, BUTTONS[i]);
-    if (!item.isEmpty()) {
-      p.setPen(Qt::white);
-      p.setFont(InterFont(40, QFont::Bold));
-      p.drawText(box.adjusted(10, box.height() / 2 - 15, -10, -10), Qt::AlignCenter, item);
+    if (chosen) {
+      p.setPen(QPen(QColor(70, 220, 100, 160), 3));
+      p.setBrush(open ? QColor(40, 150, 70, 150) : QColor(30, 120, 55, 200));
+      p.drawPath(quarter);
+      p.setPen(QPen(green, 8, Qt::SolidLine, Qt::FlatCap));
+      p.setBrush(Qt::NoBrush);
+      p.drawArc(outerRect.adjusted(4, 4, -4, -4), (START_ANGLES[i] + 1) * 16, 88 * 16);
     }
+
+    QColor color = chosen ? QColor(Qt::white) : item.isEmpty() ? QColor(255, 255, 255, 80) : QColor(255, 255, 255, 235);
+    QPointF axis = DIRECTIONS[i];
+    bool sideways = axis.x() != 0;
+
+    // The label, on one line if it fits or a word per line
+    QStringList lines = {item.isEmpty() ? QString("EMPTY") : item};
+    QFont font = InterFont(40, QFont::Bold);
+    int maxWidth = sideways ? 190 : 300;
+    if (QFontMetrics(font).horizontalAdvance(lines[0]) > maxWidth) {
+      font = InterFont(36, QFont::Bold);
+      if (QFontMetrics(font).horizontalAdvance(lines[0]) > maxWidth && lines[0].contains(' ')) {
+        lines = lines[0].split(' ');
+        font = InterFont(40, QFont::Bold);
+      }
+    }
+    QFontMetrics metrics(font);
+    int lineHeight = metrics.height() - 6;
+    int iconSize = 84;
+    int gap = 8;
+    int blockHeight = (item.isEmpty() ? 0 : iconSize + gap) + lineHeight * lines.size();
+
+    // Icon above label, the pair centred between the "Close" circle and the rim
+    QPointF middle = center + axis * 212;
+    float top = middle.y() - blockHeight / 2.0;
+    if (!item.isEmpty()) {
+      paintTravelAssistIcon(p, QPointF(middle.x(), top + iconSize / 2.0), iconSize, item, chosen ? QColor(Qt::white) : color);
+      top += iconSize + gap;
+    }
+    p.setFont(font);
+    p.setPen(color);
+    for (const QString &line : lines) {
+      p.drawText(QRectF(middle.x() - 200, top, 400, lineHeight), Qt::AlignCenter, line);
+      top += lineHeight;
+    }
+
+    // The button's badge on the rim, sideways mostly outside it so it keeps clear of the label
+    p.setFont(InterFont(i < 2 ? 46 : 36, QFont::Bold));  // + and - are small glyphs
+    QFontMetrics badgeMetrics(p.font());
+    QSizeF badgeSize(std::max(64, badgeMetrics.horizontalAdvance(BUTTONS[i]) + 36), 58);
+    QPointF badgeMiddle = center + axis * (sideways ? outer + badgeSize.width() / 2 - 16 : outer);
+    QRectF badge(badgeMiddle - QPointF(badgeSize.width() / 2, badgeSize.height() / 2), badgeSize);
+    p.setPen(QPen(chosen ? green : item.isEmpty() ? QColor(255, 255, 255, 90) : QColor(255, 255, 255, 220), 4));
+    p.setBrush(chosen ? QColor(25, 100, 45, 245) : QColor(15, 15, 15, item.isEmpty() ? 170 : 235));
+    p.drawRoundedRect(badge, badgeSize.height() / 2, badgeSize.height() / 2);
+    p.setPen(item.isEmpty() && !chosen ? QColor(255, 255, 255, 110) : QColor(Qt::white));
+    p.drawText(badge, Qt::AlignCenter, BUTTONS[i]);
+  }
+
+  if (open) {
+    // Dividers on the diagonals, the rim and the "Close" circle
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(QColor(255, 255, 255, 90), 3));
+    for (int angle : {45, 135, 225, 315}) {
+      QPointF direction(qCos(qDegreesToRadians(double(angle))), -qSin(qDegreesToRadians(double(angle))));
+      p.drawLine(center + direction * (inner + 6), center + direction * (outer - 6));
+    }
+    p.setPen(QPen(QColor(255, 255, 255, 150), 3));
+    p.drawEllipse(center, outer, outer);
+
+    p.setPen(QPen(QColor(255, 255, 255, 170), 3));
+    p.setBrush(QColor(0, 0, 0, 200));
+    p.drawEllipse(center, inner - 8, inner - 8);
+
+    p.setPen(Qt::white);
+    p.setFont(InterFont(40, QFont::Bold));
+    p.drawText(QRectF(center.x() - inner, center.y() - 42, 2 * inner, 48), Qt::AlignCenter, "Close");
+    p.setPen(QColor(255, 255, 255, 170));
+    p.setFont(InterFont(22, QFont::DemiBold));
+    p.drawText(QRectF(center.x() - inner, center.y() + 8, 2 * inner, 52), Qt::AlignCenter, "Travel Assist\nbutton");
   }
 
   p.restore();

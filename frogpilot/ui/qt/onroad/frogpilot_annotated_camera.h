@@ -23,6 +23,9 @@ public:
   void paintRainbowPath(QPainter &p, QLinearGradient &bg, float lin_grad_point);
   void updateState(const UIState &s, const FrogPilotUIState &fs);
 
+  // The Travel Assist menu's wheel, centred in "area" (static so it can be drawn without a widget)
+  static void paintTravelAssistWheel(QPainter &p, const QRect &area, bool open, int selected, const QStringList &items);
+
   bool hideBottomIcons;
   bool isCruiseSet;
   bool rightHandDM;
