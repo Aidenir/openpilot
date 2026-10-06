@@ -66,8 +66,9 @@ def test_set_and_res_never_engage_while_open():
   d.press_travel_assist()
   d.step((RES, True))
   CS, choice = d.step((RES, False), button_enable=True)
-  assert not CS.buttonEnable and types(CS) == [] and choice is None
-  assert d.menu.open  # an empty arm does nothing
+  assert not CS.buttonEnable and types(CS) == [] and choice == "report"
+  assert not d.menu.open and d.menu.selected == 3
+  d.press_travel_assist()
   d.step((SET, True))
   CS, choice = d.step((SET, False), button_enable=True)
   assert not CS.buttonEnable and types(CS) == [] and choice == "speed_limit"
@@ -132,10 +133,11 @@ def test_a_button_press_keeps_it_open():
   d = Driver()
   d.press_travel_assist()
   d.idle(TIMEOUT - 1.0)
-  d.step((RES, True))
-  d.step((RES, False))
+  d.step((RES, True))  # held: the arm is chosen on release
   d.idle(TIMEOUT - 1.0)
   assert d.menu.open
+  _, choice = d.step((RES, False))
+  assert choice == "report" and not d.menu.open
 
 
 def test_published_state():
@@ -144,7 +146,7 @@ def test_published_state():
   fpcs = custom.FrogPilotCarState.new_message()
   d.menu.publish(fpcs.travelAssistMenu)
   assert fpcs.travelAssistMenu.open and fpcs.travelAssistMenu.selected == -1
-  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "WIDE CAM", "NO SIGN", ""]
+  assert list(fpcs.travelAssistMenu.items) == ["MARK ISLAND", "WIDE CAM", "NO SIGN", "REPORT"]
   d.step((PLUS, True))
   d.step((PLUS, False))
   d.menu.publish(fpcs.travelAssistMenu)

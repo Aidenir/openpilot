@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import time
+
 import cereal.messaging as messaging
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
@@ -9,8 +11,34 @@ FEEDBACK_MAX_DURATION = 10.0
 ButtonType = car.CarState.ButtonEvent.Type
 
 
+class ReportRequests:
+  """The Travel Assist menu's REPORT arm (frogpilot_card) writes UserReportRequest, a memory param, with a new id each time: this
+  process publishes userBookmark, so it sends the bookmark. Requests made before it started are not sent."""
+  POLL_INTERVAL = 0.2  # s; the loop runs at carState's 100 Hz
+
+  def __init__(self, params_memory):
+    self.params_memory = params_memory
+    self.last_id = self.read_id()
+    self.last_poll = 0.0
+
+  def read_id(self):
+    request = self.params_memory.get("UserReportRequest")
+    return request.get("id") if isinstance(request, dict) else None
+
+  def new(self, now):
+    if now - self.last_poll < self.POLL_INTERVAL:
+      return False
+    self.last_poll = now
+    request_id = self.read_id()
+    if request_id is None or request_id == self.last_id:
+      return False
+    self.last_id = request_id
+    return True
+
+
 def main():
   params = Params()
+  reports = ReportRequests(Params(memory=True))
   pm = messaging.PubMaster(['userBookmark', 'audioFeedback'])
   sm = messaging.SubMaster(['rawAudioData', 'bookmarkButton', 'carState'])
   should_record_audio = False
@@ -60,6 +88,10 @@ def main():
 
     if sm.updated['bookmarkButton']:
       cloudlog.info("Bookmark button pressed!")
+      should_send_bookmark = True
+
+    if reports.new(time.monotonic()):
+      cloudlog.info("Report from the Travel Assist menu")
       should_send_bookmark = True
 
     if should_send_bookmark:

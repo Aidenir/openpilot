@@ -29,6 +29,7 @@ class FrogPilotCard:
 
     self.gap_counter = 0
     self.refuge_island_request_id = 0
+    self.report_request_id = 0
     self.speed_limit_request_id = 0
     self.sign_limit = 0.0          # m/s, the car's last sign recognition reading
     self.sign_limit_since_ms = 0   # wall-clock ms it changed to that, about when the car passed the sign
@@ -84,6 +85,11 @@ class FrogPilotCard:
       "source": "wheel",
     })
 
+  def request_report(self, tap_ms):
+    # feedbackd turns this into a userBookmark (it is that service's only publisher): see the "report" arm in travel_assist_menu
+    self.report_request_id = max(tap_ms, self.report_request_id + 1)
+    self.params_memory.put("UserReportRequest", {"id": self.report_request_id, "tapMs": tap_ms})
+
   def request_speed_limit(self, tap_ms):
     # mapd makes the car's reading (m/s, 0 if no sign has been read) the limit from where the car was when the reading changed to it,
     # the sign, and records it as the car drives on until track_sign_limit tells it the reading changed again. It answers in
@@ -123,6 +129,8 @@ class FrogPilotCard:
       self.request_refuge_island(self.travel_assist_menu.choice_ms)
     elif choice == "speed_limit":
       self.request_speed_limit(self.travel_assist_menu.choice_ms)
+    elif choice == "report":
+      self.request_report(self.travel_assist_menu.choice_ms)
 
   def handle_experimental_mode(self, sm, frogpilot_toggles):
     if frogpilot_toggles.conditional_experimental_mode:

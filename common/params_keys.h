@@ -509,6 +509,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     // Memory params shared with mapd, like UserSpeedBumpRequest/Result
     {"UserRefugeIslandRequest", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserRefugeIslandResult", {CLEAR_ON_MANAGER_START, JSON}},
+    // Memory param: the Travel Assist menu's REPORT arm (frogpilot_card), read by feedbackd, which sends a userBookmark
+    {"UserReportRequest", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserSpeedLimitRequest", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserSpeedLimitResult", {CLEAR_ON_MANAGER_START, JSON}},
     {"UserSpeedBumpButton", {PERSISTENT, BOOL, "0", "0", 1}},

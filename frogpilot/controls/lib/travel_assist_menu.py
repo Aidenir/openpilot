@@ -17,9 +17,11 @@ ARMS = (ButtonType.accelCruise, ButtonType.decelCruise, ButtonType.setCruise, Bu
 # What each arm does, by arm; None leaves it empty. "camera" steps the onroad view through CAMERA_MODES: openpilot's own choice,
 # the wide road camera, the narrow one, and back (the UI does it, see AnnotatedCameraWidget). Its arm shows the mode it goes to.
 # "speed_limit" makes the limit the car's sign recognition shows the map's limit for the road the car is on (mapd's
-# user_speed_limits.json), for when OpenStreetMap hasn't caught up with a new sign. Its arm shows the reading it would use
-ITEMS = ("refuge_island", "camera", "speed_limit", None)
-LABELS = {"refuge_island": "MARK ISLAND"}
+# user_speed_limits.json), for when OpenStreetMap hasn't caught up with a new sign. Its arm shows the reading it would use.
+# "report" says something was wrong just now: openpilot logs a bookmark (feedbackd's userBookmark), loggerd keeps that minute,
+# and mapd's drive viewer on the device sends the minutes around it to the upload server once parked (its Reports page)
+ITEMS = ("refuge_island", "camera", "speed_limit", "report")
+LABELS = {"refuge_island": "MARK ISLAND", "report": "REPORT"}
 
 CAMERA_MODES = ("default", "wide", "narrow")  # frogpilotCarState.travelAssistMenu.cameraMode, by index
 CAMERA_LABELS = {"default": "DEFAULT CAM", "wide": "WIDE CAM", "narrow": "NARROW CAM"}
