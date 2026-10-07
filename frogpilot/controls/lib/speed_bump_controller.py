@@ -27,6 +27,13 @@ MIN_STOP_DISTANCE = 0.5  # m, floor on the remaining distance when working out t
 JERK_BP = [5.0, 20.0]   # m/s, how fast the braking may build up and ease off: 1.5 m/s^3 at low speed down to 1.2 m/s^3 above
 JERK_V = [1.5, 1.2]     # 20 m/s, scaled by SpeedBumpConfig.jerk_scale. ISO 15622's 5 m/s^3 / 2.5 m/s^3 envelope is what
                         # ACC may do, not what is comfortable: on the car it hit the brakes at ~13 m/s^3 and lurched on release
+# Braking starts gently (2026-10-07). The car answers a deceleration request by first taking the engine's torque to zero, then into
+# overrun. Asked for more than ~0.35 m/s^2 before the torque got there, the engine snapped from 0 to -25..-33 Nm in ~0.13 s: a
+# 0.7-1.0 m/s^2 step that felt like a gear change, on 12 of 16 bump onsets in drives 27f and 280 (Motor_11 MO_Mom_Ist_Summe).
+# Where the request eased through that region at ~0.3 m/s^3 the torque took ~1 s and the step was ~0.2. So the first TIPOUT_DECEL
+# builds at TIPOUT_JERK, unless it was found late or needs "max_decel"; non-strict braking starts that much earlier (tipout_delay)
+TIPOUT_DECEL = 0.35     # m/s^2
+TIPOUT_JERK = 0.35      # m/s^3
 RELEASE_LAG_EXTRA = 0.2  # s, easing off the brakes takes this much longer than applying them (the brakes' own smoothing);
                         # with the default 0.3s response time this gives the 0.5s tuned in closed-loop sim against the MPC
 TOO_LATE_FACTOR = 1.5   # A bump first confirmed well past its braking point that would need more than this times the max
@@ -68,6 +75,18 @@ DEFAULT_CONFIG = SpeedBumpConfig()
 def max_jerk(v_ego, config=DEFAULT_CONFIG):
   return float(np.interp(v_ego, JERK_BP, JERK_V)) * config.jerk_scale
 
+def ramp_in(peak, jerk):
+  """(seconds, speed lost in m/s) building the deceleration up from 0 to "peak": at TIPOUT_JERK up to TIPOUT_DECEL, then at "jerk"."""
+  soft_jerk = min(TIPOUT_JERK, jerk)
+  soft = min(peak, TIPOUT_DECEL)
+  firm = (peak - soft) / jerk
+  return soft / soft_jerk + firm, soft**2 / (2.0 * soft_jerk) + soft * firm + (peak - soft)**2 / (2.0 * jerk)
+
+def tipout_delay(v_ego, config=DEFAULT_CONFIG):
+  """Seconds of braking the gentle start costs, compared with building straight up at the jerk limit"""
+  jerk = max_jerk(v_ego, config)
+  return TIPOUT_DECEL / 2.0 * (1.0 / min(TIPOUT_JERK, jerk) - 1.0 / jerk)
+
 def braking_distance(v_from, v_to, decel):
   """Distance (m) to slow from "v_from" to "v_to" at a constant "decel" (m/s^2)."""
   return max(0.0, v_from**2 - v_to**2) / (2.0 * decel)
@@ -79,20 +98,22 @@ def feasible_start_distance(v_ego, config=DEFAULT_CONFIG):
   if speed_drop <= 0:
     return config.margin
   # Braking ramps up and back down at the jerk limit, so a small speed drop never reaches "max_decel": ramping to a
-  # peak and back costs peak^2 / jerk of speed. Each ramp is worth half its duration at constant braking
+  # peak and back costs peak^2 / jerk of speed. Easing out is worth half its duration at constant braking; building up, with its
+  # gentle start, the time less what the speed it sheds would take at the peak
   jerk = max_jerk(v_ego, config)
   peak = min(config.max_decel, math.sqrt(jerk * speed_drop))
-  ramp_in = v_ego * (config.response_lag + peak / jerk / 2)
+  ramp_time, ramp_speed = ramp_in(peak, jerk)
+  ramp_distance = v_ego * (config.response_lag + ramp_time - ramp_speed / peak)
   ease_out = config.v_target * peak / jerk / 2
-  return config.margin + ramp_in + braking_distance(v_ego, config.v_target, peak) + ease_out
+  return config.margin + ramp_distance + braking_distance(v_ego, config.v_target, peak) + ease_out
 
 def brake_start_distance(v_ego, config=DEFAULT_CONFIG):
   """Distance to the bump's middle (m) at which braking starts: "brake_time" seconds out at the current speed. Unless
-  strict, never so late that "max_decel" couldn't reach "v_target" in time; braking then starts earlier instead."""
-  time_point = v_ego * config.brake_time
+  strict, it starts earlier by what its gentle start costs (tipout_delay), and never so late that "max_decel" couldn't reach
+  "v_target" in time; braking then starts earlier instead."""
   if config.strict:
-    return time_point
-  return max(time_point, feasible_start_distance(v_ego, config))
+    return v_ego * config.brake_time
+  return max(v_ego * (config.brake_time + tipout_delay(v_ego, config)), feasible_start_distance(v_ego, config))
 
 def approach_speed(distance, v_ego, config=DEFAULT_CONFIG):
   """The approach envelope: the fastest the car can be "distance" metres from the bump's start (its middle if its length is
@@ -153,6 +174,7 @@ class SpeedBumpController:
     # Per-bump braking state: whether braking has started for it, and whether it was found too late to brake hard for
     self.braking = False
     self.too_late = False
+    self.gentle = False  # braking started on time, so it can build up gently at first (see TIPOUT_JERK)
     self.cap = None
     self.overridden = False  # the driver pressed the gas while it was slowing for it: let go of it until it's passed
 
@@ -320,6 +342,7 @@ class SpeedBumpController:
     if not self.braking and d <= start:
       self.braking = True
       on_time = d >= start - v_ego * ON_TIME_SLACK
+      self.gentle = on_time
       self.too_late = not on_time and required_decel(d, v_ego, config) > config.max_decel * TOO_LATE_FACTOR
 
     if not active:
@@ -349,8 +372,11 @@ class SpeedBumpController:
       # that at full braking; that distance isn't available for braking, or the car is still easing off as it reaches the bump
       ease_distance = v_target * previous_decel / jerk / 2
       desired = min(required_decel(d, v_ego, config, ease_distance), config.max_decel, landing)
-    # Eased off as gently as it is applied: releasing twice as fast made the car lurch as the bump speed was reached
-    self.decel = float(np.clip(desired, previous_decel - jerk * dt, previous_decel + jerk * dt))
+    # Eased off as gently as it is applied: releasing twice as fast made the car lurch as the bump speed was reached. Built up gently
+    # at first so the engine eases into overrun (see TIPOUT_JERK), unless it was found late or needs all the braking allowed
+    gentle = self.gentle and previous_decel < TIPOUT_DECEL and desired < config.max_decel
+    apply_jerk = min(TIPOUT_JERK, jerk) if gentle else jerk
+    self.decel = float(np.clip(desired, previous_decel - jerk * dt, previous_decel + apply_jerk * dt))
     self.decel = max(self.decel, 0.0)
 
     if self.too_late:

@@ -6,7 +6,7 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.frogpilot.controls.lib.red_light_controller import BRAKE_TIME, END_OFFSET, LOST_KEEP_DISTANCE, LOST_TIME, MARGIN, \
                                                                    MAX_DECEL, RELEASE_TIME, SIGNAL_OFFSET, SLOWING_SCALE, \
                                                                    STOP_SPEED, RedLightController, model_stop_distance
-from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig
+from openpilot.frogpilot.controls.lib.speed_bump_controller import SpeedBumpConfig, tipout_delay
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
 CFG = SpeedBumpConfig()
@@ -94,7 +94,7 @@ class TestRedLightStop:
     _, log = approach(kph)
     v0 = kph * CV.KPH_TO_MS
     onset = next(x for x, _, _, decel, _ in log if decel > 0)
-    assert LINE - onset == pytest.approx(v0 * BRAKE_TIME, rel=0.2)
+    assert LINE - onset == pytest.approx(v0 * (BRAKE_TIME + tipout_delay(v0, CFG)), rel=0.2)
     assert max(decel for *_, decel, _ in log) < 2.5
     jerks = np.diff([a for *_, a in log]) / DT_MDL
     assert np.max(np.abs(jerks)) < 2.5

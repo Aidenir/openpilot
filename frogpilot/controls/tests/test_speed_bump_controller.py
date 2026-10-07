@@ -4,7 +4,8 @@ from openpilot.common.constants import CV
 from openpilot.common.realtime import DT_MDL
 from openpilot.frogpilot.controls.lib.speed_bump_controller import CONFIRM_SAMPLES, ENVELOPE_DROP, SpeedBumpConfig, SpeedBumpController, \
                                                                     brake_start_distance, braking_distance, feasible_start_distance, \
-                                                                    max_jerk, required_decel
+                                                                    max_jerk, ramp_in, required_decel, tipout_delay, \
+                                                                    TIPOUT_DECEL, TIPOUT_JERK
 
 CFG = SpeedBumpConfig(ease_decel=0.0)
 V_TARGET = CFG.v_target
@@ -22,10 +23,10 @@ class TestSpeedBumpMath:
     assert braking_distance(3.0, V_TARGET, 3.0) == 0.0
 
   def test_brake_start_scales_with_speed(self):
-    # Where the time point is reachable, braking starts exactly "brake time" seconds out at the current speed
-    v = 30 * CV.KPH_TO_MS
-    assert brake_start_distance(v, CFG) == pytest.approx(v * BRAKE_TIME)
-    assert brake_start_distance(v, SpeedBumpConfig(ease_decel=0.0, brake_time=3.0)) == pytest.approx(v * 3.0)
+    # Where the time point is reachable, braking starts "brake time" seconds out at the current speed, plus what its gentle start costs
+    v = 25 * CV.KPH_TO_MS
+    assert brake_start_distance(v, CFG) == pytest.approx(v * (BRAKE_TIME + tipout_delay(v, CFG)))
+    assert brake_start_distance(v, SpeedBumpConfig(ease_decel=0.0, brake_time=4.0)) == pytest.approx(v * (4.0 + tipout_delay(v, CFG)))
     starts = [brake_start_distance(kph * CV.KPH_TO_MS, CFG) for kph in range(20, 90, 5)]
     assert all(b > a for a, b in zip(starts, starts[1:], strict=False))
 
@@ -38,7 +39,8 @@ class TestSpeedBumpMath:
     assert start == pytest.approx(feasible_start_distance(v, CFG))
     jerk = max_jerk(v, CFG)
     peak = min(MAX_DECEL, (jerk * (v - V_TARGET)) ** 0.5)
-    ramps = v * (RESPONSE_LAG + peak / jerk / 2) + V_TARGET * peak / jerk / 2
+    ramp_time, ramp_speed = ramp_in(peak, jerk)
+    ramps = v * (RESPONSE_LAG + ramp_time - ramp_speed / peak) + V_TARGET * peak / jerk / 2
     assert start == pytest.approx(TARGET_MARGIN + ramps + braking_distance(v, V_TARGET, peak))
     assert required_decel(start, v, CFG) < MAX_DECEL
     # A gentler max moves it further out still
@@ -94,7 +96,7 @@ class TestSpeedBumpController:
     bump = 200.0
     log = drive(SpeedBumpController(), [bump], v0, 30)
     first = next(x for x, _, cap, _ in log if cap is not None)
-    assert bump - first == pytest.approx(v0 * BRAKE_TIME, abs=v0 * DT_MDL * 2)
+    assert bump - first == pytest.approx(v0 * (BRAKE_TIME + tipout_delay(v0, CFG)), abs=v0 * DT_MDL * 2)
 
   def test_decel_is_bounded_and_jerk_limited(self):
     log = drive(SpeedBumpController(), [200.0], 60 * CV.KPH_TO_MS, 30, config=SpeedBumpConfig(ease_decel=0.0, max_decel=2.5))
@@ -199,9 +201,10 @@ class TestSpeedBumpModes:
     assert speed_at(strict, bump - TARGET_MARGIN) > V_TARGET + 5 * CV.KPH_TO_MS
     assert speed_at(strict, bump - TARGET_MARGIN) < v0 - 10 * CV.KPH_TO_MS
 
-  def test_strict_same_as_default_when_reachable(self):
-    v0 = 30 * CV.KPH_TO_MS
-    assert brake_start_distance(v0, SpeedBumpConfig(ease_decel=0.0, strict=True)) == pytest.approx(brake_start_distance(v0, CFG))
+  def test_strict_skips_only_the_gentle_start_allowance_when_reachable(self):
+    v0 = 25 * CV.KPH_TO_MS
+    assert brake_start_distance(v0, SpeedBumpConfig(ease_decel=0.0, strict=True)) == pytest.approx(v0 * BRAKE_TIME)
+    assert brake_start_distance(v0, CFG) == pytest.approx(v0 * (BRAKE_TIME + tipout_delay(v0, CFG)))
 
   @pytest.mark.parametrize("margin", [0.0, 2.0, 6.0])
   def test_margin(self, margin):
@@ -345,7 +348,7 @@ class TestEasedApproach:
 
   def test_the_cap_comes_down_gradually_for_a_bump_found_late(self):
     # A bump first seen inside the envelope: the cap slides down to it instead of stepping below the car's speed
-    log = drive(SpeedBumpController(), [60.0], 50 * CV.KPH_TO_MS, 20, config=EASED)
+    log = drive(SpeedBumpController(), [70.0], 50 * CV.KPH_TO_MS, 20, config=EASED)
     braking = next(i for i, (*_, decel) in enumerate(log) if decel > 0)
     caps = [(v, cap) for _, v, cap, _ in log[:braking] if cap is not None]
     assert len(caps) > 5
@@ -451,3 +454,41 @@ class TestGasOverride:
   def test_override_is_forgotten_once_passed(self):
     sbc, _ = self.run(override_at=45, release_at=28)
     assert not sbc.overridden
+
+
+class TestGentleStart:
+  # Built up at the jerk limit from the start, the request ran ahead of the engine, which then snapped into overrun: a 0.7-1.0 m/s^2
+  # step that felt like a gear change (drives 27f and 280). The first TIPOUT_DECEL is built up at TIPOUT_JERK instead
+  @pytest.mark.parametrize("kph", [25, 30, 40])
+  @pytest.mark.parametrize("config", [CFG, EASED], ids=["plain", "eased"])
+  def test_braking_builds_up_gently_at_first(self, kph, config):
+    log = drive(SpeedBumpController(), [200.0], kph * CV.KPH_TO_MS, 30, config=config)
+    decels = [decel for *_, decel in log]
+    first = next(i for i, decel in enumerate(decels) if decel > 0)
+    for a, b in zip(decels[first - 1:], decels[first:], strict=False):
+      if a >= TIPOUT_DECEL:
+        break
+      assert b - a <= TIPOUT_JERK * DT_MDL + 1e-6
+    assert max(decels) > TIPOUT_DECEL  # and then on at the normal rate
+    assert speed_at(log, 200.0 - TARGET_MARGIN) <= V_TARGET + 1 * CV.KPH_TO_MS
+
+  def test_peak_braking_is_about_unchanged(self):
+    # Braking starts earlier by what the gentle start costs, so the rest of it is no firmer than before
+    log = drive(SpeedBumpController(), [200.0], 30 * CV.KPH_TO_MS, 30, config=EASED)
+    assert max(decel for *_, decel in log) < 0.8
+
+  def test_a_bump_found_late_is_braked_for_at_once(self):
+    # First seen well inside its braking point there is no distance to spare: the request builds up at the normal jerk limit
+    v0 = 40 * CV.KPH_TO_MS
+    log = drive(SpeedBumpController(), [30.0], v0, 10)
+    decels = [decel for *_, decel in log]
+    first = next(i for i, decel in enumerate(decels) if decel > 0)
+    assert decels[first + 3] - decels[first + 2] > TIPOUT_JERK * DT_MDL * 2
+
+  def test_tipout_delay(self):
+    v = 30 * CV.KPH_TO_MS
+    assert tipout_delay(v, CFG) == pytest.approx(TIPOUT_DECEL / 2 * (1 / TIPOUT_JERK - 1 / max_jerk(v, CFG)))
+    # Built up straight at the jerk limit, ramp_in is the plain linear ramp
+    t, dv = ramp_in(TIPOUT_DECEL, TIPOUT_JERK)
+    assert t == pytest.approx(TIPOUT_DECEL / TIPOUT_JERK)
+    assert dv == pytest.approx(TIPOUT_DECEL**2 / (2 * TIPOUT_JERK))
