@@ -34,7 +34,7 @@ private:
   // the others are only buttons
   std::map<QString, QSet<QString>> categoryKeys {
     {"AidenirsDriverMonitoring", {"DMAwarenessBar", "DMBeepingDelay", "DMCriticalDelay", "DMGreenAlertDelay", "HideDMIcon"}},
-    {"AidenirsDrivingScreen", {"CEMStatusTop", "MassageReminder"}},
+    {"AidenirsDrivingScreen", {"CEMStatusTop", "MassageReminder", "SteeringTorqueDebug"}},
     {"AidenirsSpeedBumps", {"SpeedBumpAlertDistance", "SpeedBumpApproachIcon", "SpeedBumpApproachIconDistance", "SpeedBumpDetect",
                             "SpeedBumpDetectPromoteDrives", "SpeedBumpDetectThreshold", "SpeedBumpLearn", "SpeedBumpMarkOneWay",
                             "SpeedBumpTileCountUI", "SpeedBumpUI", "UserSpeedBumpButton"}},

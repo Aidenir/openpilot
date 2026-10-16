@@ -90,6 +90,7 @@ private:
   void paintSpeedLimit(QPainter &p);
   void paintSpeedLimitSources(QPainter &p);
   void paintStandstillTimer(QPainter &p);
+  void paintSteeringTorqueDebug(QPainter &p);
   void paintStoppingPoint(QPainter &p);
   void paintTurnSignals(QPainter &p);
   void paintWeather(QPainter &p);
@@ -119,6 +120,15 @@ private:
   // Blinking icons under the speed signs for a speed bump or roundabout coming up (distances in metres, -1 if none close)
   float approachBumpMetres = -1.0f;
   float approachRoundaboutMetres = -1.0f;
+
+  // The steering torque debug view: openpilot's request and what card sent to the car, both [-1, 1] with left positive,
+  // the CAN value, and the driver's own torque (CAN units, centi-Nm on Volkswagens)
+  bool steerLatActive = false;
+  bool steerTorqueInNm = false;
+  float steerTorqueCan = 0.0f;
+  float steerTorqueDriver = 0.0f;
+  float steerTorqueRequested = 0.0f;
+  float steerTorqueSent = 0.0f;
 
   // The Travel Assist menu (frogpilotCarState.travelAssistMenu)
   bool travelAssistMenuOpen = false;

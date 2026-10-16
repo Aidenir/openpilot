@@ -203,6 +203,18 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   laneWidthRight = frogpilotPlan.getLaneWidthRight();
   lateralPaused = frogpilotCarState.getPauseLateral();
 
+  if (frogpilot_toggles.value("steering_torque_debug").toBool()) {
+    const cereal::CarControl::Reader &carControl = fpsm["carControl"].getCarControl();
+    const cereal::CarControl::Actuators::Reader &actuatorsOutput = fpsm["carOutput"].getCarOutput().getActuatorsOutput();
+    steerLatActive = carControl.getLatActive();
+    steerTorqueRequested = carControl.getActuators().getTorque();
+    steerTorqueSent = actuatorsOutput.getTorque();
+    steerTorqueCan = actuatorsOutput.getTorqueOutputCan();
+    steerTorqueDriver = carState.getSteeringTorque();
+    // HCA_01_LM_Offset and EPS_Lenkmoment are both centi-Nm
+    steerTorqueInNm = sm["carParams"].getCarParams().getBrand() == "volkswagen";
+  }
+
   bool carStateAlive = fpsm.alive("frogpilotCarState");
   const auto travelAssistMenu = frogpilotCarState.getTravelAssistMenu();
   travelAssistMenuOpen = carStateAlive && travelAssistMenu.getOpen();
@@ -409,6 +421,10 @@ void FrogPilotAnnotatedCameraWidget::paintFrogPilotWidgets(QPainter &p, UIState 
 
   if (frogpilot_toggles.value("dm_awareness_bar").toBool()) {
     paintDriverAwareness(p);
+  }
+
+  if (frogpilot_toggles.value("steering_torque_debug").toBool()) {
+    paintSteeringTorqueDebug(p);
   }
 
   bool hideSpeedLimit = !speedLimitChanged && frogpilot_toggles.value("hide_speed_limit").toBool();
@@ -1421,6 +1437,87 @@ void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
     p.setFont(InterFont(26, QFont::DemiBold));
     p.drawText(labelRect.translated(0, -36), Qt::AlignRight | Qt::AlignVCenter, modeStr);
   }
+
+  p.restore();
+}
+
+void FrogPilotAnnotatedCameraWidget::paintSteeringTorqueDebug(QPainter &p) {
+  p.save();
+
+  // A panel at the left edge of the screen, vertically centred, opposite the attention budget bar
+  const int panelWidth = 540;
+  const int panelHeight = 230;
+  QRect panelRect(UI_BORDER_SIZE + 20, (height() - panelHeight) / 2, panelWidth, panelHeight);
+  QRect inner = panelRect.adjusted(24, 14, -24, -14);
+
+  p.setPen(Qt::NoPen);
+  p.setBrush(blackColor(166));
+  p.drawRoundedRect(panelRect, 24, 24);
+
+  auto torqueStr = [this](float canValue) {
+    return steerTorqueInNm ? QString::number(canValue / 100.0f, 'f', 2) + tr(" Nm") : QString::number(canValue, 'f', 0);
+  };
+  auto percentStr = [](float torque) {
+    return QString::number(std::abs(torque) * 100.0f, 'f', 0) + "%";
+  };
+
+  // Left is positive, the same as the steering angle
+  bool turning = std::abs(steerTorqueSent) >= 0.005f;
+  bool left = steerTorqueSent > 0.0f;
+  QColor activeColor = steerLatActive ? QColor(23, 134, 68) : QColor(140, 140, 140);
+
+  QRect titleRect(inner.x(), inner.y(), inner.width(), 44);
+  p.setFont(InterFont(30, QFont::DemiBold));
+  p.setPen(whiteColor(200));
+  p.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter, tr("STEER TORQUE"));
+  p.setFont(InterFont(38, QFont::Bold));
+  p.setPen(turning ? whiteColor() : whiteColor(140));
+  p.drawText(titleRect, Qt::AlignRight | Qt::AlignVCenter, turning ? (left ? tr("LEFT") : tr("RIGHT")) : tr("NONE"));
+
+  // The bar fills from the middle towards the side the wheel is turned, ending in an arrow
+  QRect barRect(inner.x(), titleRect.bottom() + 14, inner.width(), 34);
+  int middle = barRect.center().x();
+  int halfWidth = barRect.width() / 2;
+
+  p.setPen(Qt::NoPen);
+  p.setBrush(whiteColor(40));
+  p.drawRoundedRect(barRect, 8, 8);
+
+  int fill = std::lround(std::min(std::abs(steerTorqueSent), 1.0f) * halfWidth);
+  if (fill > 0) {
+    p.setBrush(activeColor);
+    p.drawRect(left ? QRect(middle - fill, barRect.y(), fill, barRect.height()) : QRect(middle, barRect.y(), fill, barRect.height()));
+
+    int tip = left ? middle - fill : middle + fill;
+    int arrow = left ? -18 : 18;
+    QPainterPath arrowPath;
+    arrowPath.moveTo(tip, barRect.y() - 6);
+    arrowPath.lineTo(tip + arrow, barRect.center().y());
+    arrowPath.lineTo(tip, barRect.bottom() + 6);
+    arrowPath.closeSubpath();
+    p.drawPath(arrowPath);
+  }
+
+  // What the lateral controller asked for, before card's rate and driver torque limits
+  p.setPen(QPen(whiteColor(110), 3));
+  p.drawLine(middle, barRect.y(), middle, barRect.bottom());
+  int requested = middle - std::lround(std::clamp(steerTorqueRequested, -1.0f, 1.0f) * halfWidth);
+  p.setPen(QPen(whiteColor(), 6));
+  p.drawLine(requested, barRect.y() - 8, requested, barRect.bottom() + 8);
+
+  QRect sentRect(inner.x(), barRect.bottom() + 14, inner.width(), 40);
+  p.setFont(InterFont(30, QFont::DemiBold));
+  p.setPen(whiteColor());
+  p.drawText(sentRect, Qt::AlignLeft | Qt::AlignVCenter, tr("Sent %1 (%2)").arg(torqueStr(std::abs(steerTorqueCan)), percentStr(steerTorqueSent)));
+  p.drawText(sentRect, Qt::AlignRight | Qt::AlignVCenter, tr("Req %1").arg(percentStr(steerTorqueRequested)));
+
+  QRect driverRect = sentRect.translated(0, sentRect.height());
+  float driverTorque = std::abs(steerTorqueDriver);
+  QString driverSide = driverTorque < 1.0f ? QString() : (steerTorqueDriver > 0.0f ? tr(" L") : tr(" R"));
+  p.setPen(whiteColor(200));
+  p.drawText(driverRect, Qt::AlignLeft | Qt::AlignVCenter, tr("Driver %1%2").arg(torqueStr(driverTorque), driverSide));
+  p.setPen(activeColor);
+  p.drawText(driverRect, Qt::AlignRight | Qt::AlignVCenter, steerLatActive ? tr("Active") : tr("Off"));
 
   p.restore();
 }

@@ -75,7 +75,7 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"AidenirsDrivingScreen",
      tr("Driving Screen"),
-     tr("<b>Where the Experimental Mode icon goes, and the massage reminder.</b>"),
+     tr("<b>Where the Experimental Mode icon goes, the massage reminder, and a steering torque debug view.</b>"),
      ""},
 
     {"CEMStatusTop",
@@ -87,6 +87,14 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
     {"MassageReminder",
      tr("Massage Reminder"),
      tr("<b>Enable periodic reminders to turn on the massage function.</b> A gentle prompt will appear every 10 minutes while driving."),
+     ""},
+
+    {"SteeringTorqueDebug",
+     tr("Steering Torque Debug"),
+     tr("<b>Show the steering torque openpilot asks the car for, and which way, in a panel at the left of the driving screen.</b> "
+        "The bar fills from the middle towards the side the wheel is being turned: the filled part is what is actually sent to the car "
+        "after the safety limits (in Nm on Volkswagens, which allow at most 3 Nm), the white line is what the lateral controller asked for. "
+        "Below it is the torque from your own hands on the wheel, for comparison."),
      ""},
 
     {"AidenirsSpeedBumps",

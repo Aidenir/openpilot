@@ -545,6 +545,7 @@ class FrogPilotVariables:
     toggle.show_stopping_point_metrics = self.get_value("ShowStoppingPointMetrics", condition=toggle.show_stopping_point) or toggle.debug_mode
 
     toggle.massage_reminder = self.get_value("MassageReminder")
+    toggle.steering_torque_debug = self.get_value("SteeringTorqueDebug")
 
     # The awareness bar marks where the green and orange alerts start, so it needs the same clamped delays as
     # DRIVER_MONITOR_SETTINGS in selfdrive/monitoring/helpers.py
