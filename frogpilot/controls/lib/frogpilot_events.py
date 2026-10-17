@@ -28,8 +28,6 @@ class FrogPilotEvents:
     self.startup_seen = False
     self.stopped_for_light = False
 
-    self.speed_bump_warned = False
-
     # Steering wheel speed bump marks: the last result seen, and a frame counter so mapd's reply is only polled at ~4 Hz
     self.speed_bump_result_id = None
     self.speed_bump_result_frame = 0
@@ -81,22 +79,6 @@ class FrogPilotEvents:
     alerts_empty = all(sm[state].alertText1 == "" and sm[state].alertText2 == "" for state in ["selfdriveState", "frogpilotSelfdriveState"])
 
     self.events.clear()
-
-    # Warn shortly before a speed bump. The OSM node sits at the middle of the
-    # bump, so the alert distance is measured to that point and wants a little
-    # lead; it is tunable via SpeedBumpAlertDistance. Latches so it plings once
-    # per approach rather than every frame, and re-arms once the bump is behind
-    # us or a new one appears further ahead.
-    if frogpilot_toggles.speed_bump_ui and sm.alive["mapdOut"] and sm.valid["mapdOut"]:
-      bump_distance = sm["mapdOut"].nextSpeedBumpDistance
-      has_bump = sm["mapdOut"].hasNextSpeedBump
-      warn_at = frogpilot_toggles.speed_bump_alert_distance
-
-      if not has_bump or bump_distance > warn_at * 2:
-        self.speed_bump_warned = False
-      elif has_bump and bump_distance <= warn_at and not self.speed_bump_warned:
-        self.events.add(FrogPilotEventName.speedBumpAhead)
-        self.speed_bump_warned = True
 
     self.speed_bump_mark_feedback()
     self.speed_limit_correction_feedback()

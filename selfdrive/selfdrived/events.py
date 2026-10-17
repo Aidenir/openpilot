@@ -1219,18 +1219,6 @@ FROGPILOT_EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       Priority.MID, VisualAlert.none, AudibleAlert.prompt, 3.),
   },
 
-  # Sound only. AlertSize.none draws nothing (see OnroadAlerts::paintEvent, which
-  # returns early) but soundd keys off alertSound independently, so this plings
-  # without putting a banner at the bottom of the screen - the speed bump warning
-  # is drawn at the top by FrogPilotAnnotatedCameraWidget instead.
-  FrogPilotEventName.speedBumpAhead: {
-    ET.PERMANENT: Alert(
-      "",
-      "",
-      FrogPilotAlertStatus.frogpilot, AlertSize.none,
-      Priority.LOW, VisualAlert.none, AudibleAlert.prompt, 2.),
-  },
-
   # Feedback for a speed bump marked (or undone) with a steering wheel button, where the onroad button's own feedback may not be on screen
   FrogPilotEventName.speedBumpMarked: {
     ET.PERMANENT: Alert(

@@ -250,10 +250,8 @@ void FrogPilotAnnotatedCameraWidget::updateState(const UIState &s, const FrogPil
   float speedLimitOffset = frogpilotPlan.getSlcSpeedLimitOffset() * speedConversion;
   speedLimitOffsetStr = (speedLimitOffset != 0) ? QString::number(speedLimitOffset, 'f', 0).prepend((speedLimitOffset > 0) ? "+" : "-") : "–";
 
-  // Imminent-bump warning. The sound comes from the speedBumpAhead event; this is
-  // the visual, drawn at the top so it does not compete with the alert band at the
-  // bottom. Shown a little wider than the alert threshold so it is on screen before
-  // the pling rather than appearing with it.
+  // Imminent-bump warning, drawn at the top so it does not compete with the alert band at the bottom. It is silent
+  // (the speedBumpAhead pling was removed); shown from 1.5x the warning distance to the bump's middle.
   int warnAt = frogpilot_toggles.value("speed_bump_alert_distance").toInt();
   float bumpMetres = frogpilotPlan.getNextSpeedBumpDistance();
   // To where the bump starts (mapd's distance is to its middle) and to the roundabout's give-way line
