@@ -1444,10 +1444,14 @@ void FrogPilotAnnotatedCameraWidget::paintDriverAwareness(QPainter &p) {
 void FrogPilotAnnotatedCameraWidget::paintSteeringTorqueDebug(QPainter &p) {
   p.save();
 
-  // A panel at the left edge of the screen, vertically centred, opposite the attention budget bar
+  // A panel at the left edge of the screen, vertically centred, opposite the attention budget bar. Laid out at
+  // 540 x 230 and drawn at twice that, to be readable at a glance while driving
   const int panelWidth = 540;
   const int panelHeight = 230;
-  QRect panelRect(UI_BORDER_SIZE + 20, (height() - panelHeight) / 2, panelWidth, panelHeight);
+  const qreal panelScale = 2.0;
+  p.translate(UI_BORDER_SIZE + 20, (height() - panelHeight * panelScale) / 2);
+  p.scale(panelScale, panelScale);
+  QRect panelRect(0, 0, panelWidth, panelHeight);
   QRect inner = panelRect.adjusted(24, 14, -24, -14);
 
   p.setPen(Qt::NoPen);
