@@ -84,16 +84,6 @@ void AnnotatedCameraWidget::updateState(const UIState &s, const FrogPilotUIState
     refuge_island_mark_btn->updateState();
   }
 
-  // So the approach icons can be drawn clear of the mark buttons
-  QRect mark_buttons;
-  if (speed_bump_mark_btn_enabled) {
-    mark_buttons |= speed_bump_mark_btn->geometry();
-  }
-  if (refuge_island_mark_btn_enabled) {
-    mark_buttons |= refuge_island_mark_btn->geometry();
-  }
-  frogpilot_nvg->markButtonsRect = mark_buttons;
-
   // Across from the speed bump button, on the passenger's side
   bool gps_reboot_btn_enabled = GpsRebootButton::alertShown(s);
   gps_reboot_btn->updateState(s);

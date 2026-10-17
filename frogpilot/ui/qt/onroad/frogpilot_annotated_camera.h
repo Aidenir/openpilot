@@ -49,8 +49,6 @@ public:
   QPoint dmIconPosition;
   QPoint experimentalButtonPosition;
 
-  QRect markButtonsRect;
-
   // The Travel Assist menu's camera arm (see AnnotatedCameraWidget::paintEvent): 0 openpilot's own choice, 1 wide, 2 narrow
   int travelAssistCameraMode = 0;
 
@@ -83,9 +81,7 @@ private:
   void paintPedalIcons(QPainter &p);
   void paintPendingSpeedLimit(QPainter &p);
   void paintRadarTracks(QPainter &p);
-  void paintNextSpeedBump(QPainter &p);
   void paintSpeedBumpWarning(QPainter &p);
-  void paintSpeedBumpAreaCount(QPainter &p);
   void paintRoadName(QPainter &p);
   void paintSpeedLimit(QPainter &p);
   void paintSpeedLimitSources(QPainter &p);
@@ -111,13 +107,12 @@ private:
   bool longitudinalPaused;
   bool redLight;
   bool speedLimitChanged;
-  bool tileLoadedLast = false;
   bool weatherDaytime;
 
   int animationFrameIndex;
   bool dmAwarenessActiveMode = true;
 
-  // Blinking icons under the speed signs for a speed bump or roundabout coming up (distances in metres, -1 if none close)
+  // Icons along the top, right of the Experimental Mode icon, for a speed bump or roundabout coming up (distances in metres, -1 if none close)
   float approachBumpMetres = -1.0f;
   float approachRoundaboutMetres = -1.0f;
 
@@ -134,7 +129,6 @@ private:
   bool travelAssistMenuOpen = false;
   int travelAssistSelected = -1;
   QStringList travelAssistItems;
-  int speedSignsBottom = 0;
   bool dmAwarenessValid = false;
 
   float dmAwareness = 1.0f;
@@ -149,7 +143,6 @@ private:
   int signalHeight;
   int signalMovement;
   int signalWidth;
-  int speedBumpAreaCountLast = 0;
   int totalFrames;
   int weatherId;
 
@@ -182,7 +175,6 @@ private:
   QElapsedTimer glowTimer;
   QElapsedTimer pendingLimitTimer;
   QElapsedTimer standstillTimer;
-  QElapsedTimer tileLoadTimer;
 
   QPixmap brakePedalImg;
   QPixmap curveSpeedIcon;
@@ -220,9 +212,7 @@ private:
   QString leadDistanceUnit;
   QString leadSpeedUnit;
   QString roadName;
-  QString nextSpeedBumpStr;
   QString speedBumpWarningStr;
-  QString speedBumpAreaStr;
   QString speedLimitOffsetStr;
   QString speedUnit;
 

@@ -565,7 +565,6 @@ class FrogPilotVariables:
                                                               default=50, min=10, max=200)
     toggle.speed_bump_detect = self.get_value("SpeedBumpDetect")
     toggle.speed_bump_alert_distance = self.get_value("SpeedBumpAlertDistance", cast=int, condition=toggle.speed_bump_ui, default=10)
-    toggle.speed_bump_tile_count_ui = self.get_value("SpeedBumpTileCountUI", condition=toggle.speed_bump_ui)
 
     toggle.overtake_suggestion = self.get_value("OvertakeSuggestion")
 

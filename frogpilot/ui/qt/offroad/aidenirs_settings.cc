@@ -104,7 +104,7 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"SpeedBumpUI",
      tr("Speed Bump Display"),
-     tr("<b>Display the distance to the next mapped speed bump ahead.</b> Requires map data from <b>mapd</b>."),
+     tr("<b>Show a \"SPEED BUMP\" warning at the top of the screen as a mapped speed bump gets close.</b> Requires map data from <b>mapd</b>."),
      ""},
 
     {"SpeedBumpAlertDistance",
@@ -114,7 +114,7 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
 
     {"SpeedBumpApproachIcon",
      tr("Speed Bump And Roundabout Icons"),
-     tr("<b>Show a warning icon under the speed signs when a speed bump or roundabout is coming up,</b> with the distance to it."),
+     tr("<b>Show a warning icon at the top, beside the Experimental Mode icon, when a speed bump or roundabout is coming up,</b> with the distance to it."),
      ""},
 
     {"SpeedBumpApproachIconDistance",
@@ -161,11 +161,6 @@ AidenirsSettingsPanel::AidenirsSettingsPanel(FrogPilotSettingsWindow *parent, bo
      tr("Drives To Learn A Bump"),
      tr("<b>On how many separate drives a suggested bump must be felt before it becomes active.</b> A drive ends after 10 minutes stopped. "
         "0 never learns automatically; bumps then only become active when confirmed with the button."),
-     ""},
-
-    {"SpeedBumpTileCountUI",
-     tr("Speed Bump Tile Count (Debug)"),
-     tr("<b>Display a developer banner with the number of speed bumps in the freshly loaded map tile.</b> This is diagnostic output, not a driving aid."),
      ""},
 
     {"SpeedBumpSlowdown",

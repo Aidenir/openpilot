@@ -37,7 +37,7 @@ private:
     {"AidenirsDrivingScreen", {"CEMStatusTop", "MassageReminder", "SteeringTorqueDebug"}},
     {"AidenirsSpeedBumps", {"SpeedBumpAlertDistance", "SpeedBumpApproachIcon", "SpeedBumpApproachIconDistance", "SpeedBumpDetect",
                             "SpeedBumpDetectPromoteDrives", "SpeedBumpDetectThreshold", "SpeedBumpLearn", "SpeedBumpMarkOneWay",
-                            "SpeedBumpTileCountUI", "SpeedBumpUI", "UserSpeedBumpButton"}},
+                            "SpeedBumpUI", "UserSpeedBumpButton"}},
     {"SpeedBumpSlowdown", speedBumpSlowdownKeys},
     {"AidenirsRefugeIslands", {"RefugeIslandNudge", "RefugeIslandOffset", "UserRefugeIslandButton"}},
     {"AidenirsOvertaking", {"OvertakeSuggestion"}},
