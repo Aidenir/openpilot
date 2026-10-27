@@ -23,6 +23,7 @@ from openpilot.common.watchdog import WATCHDOG_FN
 
 ENABLE_WATCHDOG = os.getenv("NO_WATCHDOG") is None
 WATCHDOG_DIAG_DIR = "/data/error_logs/watchdog"
+BACKTRACE_WAIT = 0.3  # s for a frozen UI to write its backtrace before it is killed
 WATCHDOG_DIAG_MAX_READ = 1024 * 1024
 WATCHDOG_SENTRY_MAX_ATTACHMENT_BYTES = 512 * 1024
 
@@ -344,7 +345,36 @@ class ManagerProcess(ABC):
     except Exception:
       cloudlog.exception(f"failed to send watchdog diagnostics for {self.name} to sentry")
 
-  def dump_watchdog_diagnostics(self, dt: float, pid: int | None = None, exitcode: int | None = None, gdb: bool = True) -> None:
+  def _snapshot_before_kill(self, pid: int) -> str | None:
+    """FrogPilot: what can only be read while the frozen process is still alive, as it is killed before the dump is written.
+    Each thread's state and kernel wait channel, and the UI's main thread writes a backtrace on SIGUSR1 (selfdrive/ui/main.cc).
+    Takes about BACKTRACE_WAIT, the screen being frozen already."""
+    if self.name != "ui":
+      return None
+    try:
+      os.kill(pid, signal.SIGUSR1)
+    except OSError:
+      pass
+    lines = []
+    task_dir = f"/proc/{pid}/task"
+    try:
+      for tid in sorted(os.listdir(task_dir), key=int):
+        fields = []
+        for name in ("comm", "wchan", "stat", "syscall"):
+          try:
+            with open(os.path.join(task_dir, tid, name)) as f:
+              value = f.read().strip()
+            fields.append(value.split(") ", 1)[-1].split(" ", 1)[0] if name == "stat" else value)
+          except OSError as e:
+            fields.append(f"<{e.strerror}>")
+        lines.append(f"{tid} comm={fields[0]} wchan={fields[1]} state={fields[2]} syscall={fields[3]}")
+    except OSError as e:
+      lines.append(f"unavailable: {e!r}")
+    time.sleep(BACKTRACE_WAIT)
+    return "\n".join(lines)
+
+  def dump_watchdog_diagnostics(self, dt: float, pid: int | None = None, exitcode: int | None = None, gdb: bool = True,
+                                threads: str | None = None) -> None:
     if pid is None:
       if self.proc is None or self.proc.pid is None:
         return
@@ -370,6 +400,14 @@ class ManagerProcess(ABC):
         f"wall_time={time.strftime('%Y-%m-%d %H:%M:%S %Z')}",
       )))
 
+      if threads is not None:
+        self._write_diag_file(os.path.join(diag_dir, "threads_before_kill.txt"), threads)
+        backtrace = f"/tmp/ui_backtrace_{pid}.txt"
+        self._copy_diag_file(backtrace, os.path.join(diag_dir, "main_thread_backtrace.txt"))
+        try:
+          os.remove(backtrace)
+        except OSError:
+          pass
       self._dump_watchdog_proc_tree(diag_dir, pid)
       self._dump_watchdog_system_state(diag_dir, pid)
       if gdb:
@@ -402,8 +440,9 @@ class ManagerProcess(ABC):
           # took ~8 s (gdb alone may take 30), the UI stayed frozen all that time and the manager stopped publishing managerState,
           # so selfdrived raised commIssue on top of the frozen screen (2026-10-02)
           pid, exitcode = self.proc.pid, self.proc.exitcode
+          threads = self._snapshot_before_kill(pid)
           self.restart()
-          threading.Thread(target=self.dump_watchdog_diagnostics, args=(dt, pid, exitcode, False), daemon=True).start()
+          threading.Thread(target=self.dump_watchdog_diagnostics, args=(dt, pid, exitcode, False, threads), daemon=True).start()
         else:
           self.dump_watchdog_diagnostics(dt)
           self.restart()
