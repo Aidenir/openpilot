@@ -171,7 +171,8 @@ class FrogPilotPlanner:
     speed_limit = self.frogpilot_vcruise.slc_target or (sm["mapdOut"].speedLimit if mapd_alive else 0.0)
     lane_line_probs = sm["modelV2"].laneLineProbs
     left_lane_prob = lane_line_probs[0] if len(lane_line_probs) else 0.0
-    self.overtake_detector.update(frogpilot_toggles.overtake_suggestion, v_ego, speed_limit, self.lead_one, mapd_alive,
+    self.overtake_detector.update(frogpilot_toggles.overtake_suggestion, v_ego, speed_limit, self.lead_one,
+                                  mapd_alive and sm["mapdOut"].wayId != 0,
                                   sm["mapdOut"].oneWay, sm["mapdOut"].lanes, left_lane_prob, self.lane_width_left,
                                   sm["carState"].leftBlinker or sm["carState"].rightBlinker or
                                   sm["modelV2"].meta.laneChangeState != log.LaneChangeState.off)

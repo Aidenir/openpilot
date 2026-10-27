@@ -6,11 +6,11 @@ from openpilot.common.realtime import DT_MDL
 # overtake?", frogpilotPlan.overtakeSuggested), so the detection can be checked on the road before anything acts on it.
 #
 # It makes sense when following a lead well under the speed limit on a road with another lane the same way to pull out into.
-# Traffic keeps right here, so that is a lane on the left. mapd's "lanes" is OpenStreetMap's, both directions together, so
-# a two-way road only counts with an even number of them. An odd one is usually a 2+1 road ("mötesfri väg", the middle lane
-# alternating direction), and the tiles don't keep "lanes:forward". Where the map doesn't tell, the camera has to: the
-# model sees the left lane's far line and the lane is wide enough. On a two-way road that is the oncoming lane, so the
-# camera is only asked when the map has nothing to say.
+# Traffic keeps right here, so that is a lane on the left. mapd's "lanes" is OpenStreetMap's, both directions together, and
+# the tiles don't keep "lanes:forward", so on a two-way road the car's are half of them, rounded down. An odd number is
+# usually a 2+1 road ("mötesfri väg", the middle lane alternating direction): one. Most two-way roads aren't tagged at all
+# (3394 of 3912 two-way ways in Malmö) and are one lane each way. The left lane the camera sees there is the oncoming one,
+# so on a two-way road the camera is never asked. It only decides on an untagged one-way road, or where mapd has no road.
 
 BELOW_LIMIT = 10 * CV.KPH_TO_MS  # m/s, at least this far under the speed limit
 MIN_SPEED = 30 * CV.KPH_TO_MS    # m/s, slower is a queue rather than a slow car
@@ -24,13 +24,9 @@ RELEASE_TIME = 1.5  # s they have to be gone before it is taken down, so a lead 
 
 def map_lanes_ahead(one_way, lanes):
   """Lanes in the car's direction from mapd's "oneWay" and "lanes", or None if the map doesn't tell."""
-  if lanes <= 0:
-    return None
   if one_way:
-    return lanes
-  if lanes % 2 == 0:
-    return lanes // 2
-  return None
+    return lanes if lanes > 0 else None
+  return max(lanes // 2, 1)
 
 
 class OvertakeDetector:

@@ -27,8 +27,9 @@ class TestMapLanesAhead:
   @pytest.mark.parametrize("one_way, lanes, expected", [
     (True, 1, 1), (True, 2, 2), (True, 3, 3),
     (False, 2, 1), (False, 4, 2), (False, 6, 3),
-    (False, 3, None),  # 2+1 road, the middle lane changes direction
-    (True, 0, None), (False, 0, None),  # not tagged
+    (False, 1, 1), (False, 3, 1), (False, 5, 2),  # odd: rounded down, a 2+1 road is one lane the car's way
+    (False, 0, 1),  # an untagged two-way road is one lane each way
+    (True, 0, None),  # an untagged one-way road: the camera decides
   ])
   def test_lanes(self, one_way, lanes, expected):
     assert map_lanes_ahead(one_way, lanes) == expected
@@ -67,6 +68,9 @@ class TestOvertakeDetector:
     dict(lanes=1),
     dict(one_way=False, lanes=2),  # one lane each way: the left lane is the oncoming one
     dict(one_way=False, lanes=2, left_lane_prob=0.9, lane_width_left=3.5),  # and the camera seeing it doesn't count
+    dict(one_way=False, lanes=0, left_lane_prob=0.9, lane_width_left=3.5),  # nor on an untagged two-way road
+    dict(one_way=False, lanes=1, left_lane_prob=0.9, lane_width_left=3.5),  # nor on a single-lane one
+    dict(one_way=False, lanes=3, left_lane_prob=0.9, lane_width_left=3.5),  # nor on a 2+1 road
   ])
   def test_not_suggested(self, change):
     assert not drive(OvertakeDetector(), HOLD_TIME + 1.0, **change)
@@ -74,7 +78,7 @@ class TestOvertakeDetector:
   def test_two_lanes_each_way(self):
     assert drive(OvertakeDetector(), HOLD_TIME + 0.5, one_way=False, lanes=4)
 
-  @pytest.mark.parametrize("road", [dict(lanes=0), dict(one_way=False, lanes=3), dict(mapd_alive=False)])
+  @pytest.mark.parametrize("road", [dict(lanes=0), dict(mapd_alive=False), dict(mapd_alive=False, one_way=False, lanes=0)])
   def test_camera_decides_where_the_map_does_not(self, road):
     od = OvertakeDetector()
     assert not drive(od, HOLD_TIME + 0.5, **road)
