@@ -1,9 +1,28 @@
 #include "selfdrive/ui/qt/onroad/alerts.h"
 
+#include <QFontMetrics>
 #include <QPainter>
+#include <algorithm>
 #include <map>
 
 #include "selfdrive/ui/qt/util.h"
+
+// FrogPilot variables
+// A single line of alert text drawn in the largest size up to "pixel_size" that fits "max_width", so a long
+// message (mapd's speed limit corrections) stays inside the box instead of running off both sides
+static void drawFittedText(QPainter &p, const QRect &rect, int flags, const QString &text, int pixel_size, QFont::Weight weight, int max_width) {
+  const int min_size = pixel_size / 2;
+  QFont font = InterFont(pixel_size, weight);
+  int width = QFontMetrics(font).horizontalAdvance(text);
+  if (width > max_width) {
+    font.setPixelSize(std::max(min_size, pixel_size * max_width / width));
+    while (font.pixelSize() > min_size && QFontMetrics(font).horizontalAdvance(text) > max_width) {
+      font.setPixelSize(font.pixelSize() - 2);
+    }
+  }
+  p.setFont(font);
+  p.drawText(rect, flags, QFontMetrics(font).elidedText(text, Qt::ElideRight, max_width));
+}
 
 void OnroadAlerts::updateState(const UIState &s, const FrogPilotUIState &fs) {
   Alert a = getAlert(*(s.sm), *(fs.sm), s.scene.started_frame);
@@ -135,17 +154,15 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
   const QPoint c = r.center();
   p.setPen(QColor(0xff, 0xff, 0xff));
   p.setRenderHint(QPainter::TextAntialiasing);
+  const int text_width = r.width() - 2 * 40;
   if (alert.size == cereal::SelfdriveState::AlertSize::SMALL) {
     bool long_alert1 = alert.text1.length() > 40;
-    p.setFont(InterFont(long_alert1 && sidebarsOpen ? 64 : 74, QFont::DemiBold));
-    p.drawText(r, Qt::AlignCenter, alert.text1);
+    drawFittedText(p, r, Qt::AlignCenter, alert.text1, long_alert1 && sidebarsOpen ? 64 : 74, QFont::DemiBold, text_width);
   } else if (alert.size == cereal::SelfdriveState::AlertSize::MID) {
     bool long_alert1 = alert.text1.length() > 30;
-    p.setFont(InterFont(long_alert1 && sidebarsOpen ? 78 : 88, QFont::Bold));
-    p.drawText(QRect(0, c.y() - 125, width(), 150), Qt::AlignHCenter | Qt::AlignTop, alert.text1);
+    drawFittedText(p, QRect(0, c.y() - 125, width(), 150), Qt::AlignHCenter | Qt::AlignTop, alert.text1, long_alert1 && sidebarsOpen ? 78 : 88, QFont::Bold, text_width);
     bool long_alert2 = alert.text2.length() > 40;
-    p.setFont(InterFont(long_alert2 && sidebarsOpen ? 56 : 66));
-    p.drawText(QRect(0, c.y() + 21, width(), 90), Qt::AlignHCenter, alert.text2);
+    drawFittedText(p, QRect(0, c.y() + 21, width(), 90), Qt::AlignHCenter, alert.text2, long_alert2 && sidebarsOpen ? 56 : 66, QFont::Normal, text_width);
   } else if (alert.size == cereal::SelfdriveState::AlertSize::FULL) {
     bool l = alert.text1.length() > 15;
     p.setFont(InterFont(l ? 132 : 177, QFont::Bold));
