@@ -11,8 +11,9 @@ SLOW = 60 * CV.KPH_TO_MS
 LEAD = SimpleNamespace(status=True, dRel=40.0, vLead=SLOW)
 NO_LEAD = SimpleNamespace(status=False, dRel=0.0, vLead=0.0)
 
-# A one-way road with two lanes, from the map
-ROAD = dict(mapd_alive=True, one_way=True, lanes=2, left_lane_prob=0.0, lane_width_left=0.0)
+# A one-way road with two lanes, from the map, and the camera sees the left one
+ROAD = dict(mapd_alive=True, one_way=True, lanes=2, left_lane_prob=0.8, lane_width_left=3.3)
+NO_LEFT_LANE = dict(left_lane_prob=0.05, lane_width_left=0.0)
 
 
 def drive(detector, seconds, enabled=True, v_ego=SLOW, speed_limit=LIMIT, lead=LEAD, signalling=False, **road):
@@ -40,7 +41,7 @@ class TestOvertakeDetector:
     od = OvertakeDetector()
     assert not drive(od, HOLD_TIME - 0.5)
     assert drive(od, 1.0)
-    assert od.lane_source == "2 lanes (map)"
+    assert od.lane_source == "left lane, 2 lanes (map)"
     assert od.speed_limit == LIMIT
 
   def test_released_after_conditions_are_gone_for_a_while(self):
@@ -66,11 +67,13 @@ class TestOvertakeDetector:
     dict(speed_limit=0.0),  # limit unknown
     dict(signalling=True),
     dict(lanes=1),
-    dict(one_way=False, lanes=2),  # one lane each way: the left lane is the oncoming one
-    dict(one_way=False, lanes=2, left_lane_prob=0.9, lane_width_left=3.5),  # and the camera seeing it doesn't count
-    dict(one_way=False, lanes=0, left_lane_prob=0.9, lane_width_left=3.5),  # nor on an untagged two-way road
-    dict(one_way=False, lanes=1, left_lane_prob=0.9, lane_width_left=3.5),  # nor on a single-lane one
-    dict(one_way=False, lanes=3, left_lane_prob=0.9, lane_width_left=3.5),  # nor on a 2+1 road
+    dict(one_way=False, lanes=2),  # one lane each way: the left lane the camera sees is the oncoming one
+    dict(one_way=False, lanes=0),  # an untagged two-way road
+    dict(one_way=False, lanes=1),  # a single-lane one
+    dict(one_way=False, lanes=3),  # a 2+1 road
+    NO_LEFT_LANE,  # two lanes on the map, but the car is already in the left one
+    dict(left_lane_prob=0.8, lane_width_left=2.0),  # too narrow
+    dict(one_way=False, lanes=4, **NO_LEFT_LANE),
   ])
   def test_not_suggested(self, change):
     assert not drive(OvertakeDetector(), HOLD_TIME + 1.0, **change)
@@ -79,12 +82,11 @@ class TestOvertakeDetector:
     assert drive(OvertakeDetector(), HOLD_TIME + 0.5, one_way=False, lanes=4)
 
   @pytest.mark.parametrize("road", [dict(lanes=0), dict(mapd_alive=False), dict(mapd_alive=False, one_way=False, lanes=0)])
-  def test_camera_decides_where_the_map_does_not(self, road):
+  def test_camera_alone_where_the_map_does_not_tell(self, road):
     od = OvertakeDetector()
-    assert not drive(od, HOLD_TIME + 0.5, **road)
-    assert drive(od, HOLD_TIME + 0.5, left_lane_prob=0.8, lane_width_left=3.2, **road)
+    assert drive(od, HOLD_TIME + 0.5, **road)
     assert od.lane_source == "left lane (camera)"
-    assert not drive(OvertakeDetector(), HOLD_TIME + 0.5, left_lane_prob=0.8, lane_width_left=2.0, **road)  # too narrow
+    assert not drive(OvertakeDetector(), HOLD_TIME + 0.5, **road, **NO_LEFT_LANE)
 
   def test_signalling_takes_it_down_at_once(self):
     od = OvertakeDetector()

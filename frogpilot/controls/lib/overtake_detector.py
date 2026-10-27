@@ -5,12 +5,16 @@ from openpilot.common.realtime import DT_MDL
 # First step towards automatic overtaking: only works out when an overtake would make sense and says so on screen ("Initiate
 # overtake?", frogpilotPlan.overtakeSuggested), so the detection can be checked on the road before anything acts on it.
 #
-# It makes sense when following a lead well under the speed limit on a road with another lane the same way to pull out into.
-# Traffic keeps right here, so that is a lane on the left. mapd's "lanes" is OpenStreetMap's, both directions together, and
-# the tiles don't keep "lanes:forward", so on a two-way road the car's are half of them, rounded down. An odd number is
-# usually a 2+1 road ("mötesfri väg", the middle lane alternating direction): one. Most two-way roads aren't tagged at all
-# (3394 of 3912 two-way ways in Malmö) and are one lane each way. The left lane the camera sees there is the oncoming one,
-# so on a two-way road the camera is never asked. It only decides on an untagged one-way road, or where mapd has no road.
+# It makes sense when following a lead well under the speed limit with another lane the same way to pull out into. Traffic
+# keeps right here, so that is a lane on the left, and the camera has to see it: the model sees the left lane's far line and
+# the lane is wide enough. The map alone isn't enough. A one-way road with "lanes=2" also has no lane on the left when the
+# car is already in the left one, or on a ramp narrowing to one lane: 10 of 30 suggestions on 2026-10-25..27 were like that,
+# with the road edge right beside the car's left line.
+#
+# The map can still rule a lane out, where the camera's left lane is the oncoming one. mapd's "lanes" is OpenStreetMap's, both
+# directions together, and the tiles don't keep "lanes:forward", so on a two-way road the car's are half of them, rounded
+# down. An odd number is usually a 2+1 road ("mötesfri väg", the middle lane alternating direction): one. Most two-way
+# roads aren't tagged at all (3394 of 3912 two-way ways in Malmö), and they are one lane each way.
 
 BELOW_LIMIT = 10 * CV.KPH_TO_MS  # m/s, at least this far under the speed limit
 MIN_SPEED = 30 * CV.KPH_TO_MS    # m/s, slower is a queue rather than a slow car
@@ -76,10 +80,11 @@ class OvertakeDetector:
 
   @staticmethod
   def lane_available(mapd_alive, one_way, lanes, left_lane_prob, lane_width_left):
-    """A description of where the lane to overtake in was seen ("2 lanes (map)", "left lane (camera)"), or None if there isn't one."""
+    """A description of where the lane to overtake in was seen ("left lane, 2 lanes (map)"), or None if there isn't one.
+    "mapd_alive" is mapd running with a road for the car."""
     lanes_ahead = map_lanes_ahead(one_way, lanes) if mapd_alive else None
-    if lanes_ahead is not None:
-      return f"{lanes_ahead} lanes (map)" if lanes_ahead >= 2 else None
-    if left_lane_prob >= MIN_LANE_PROB and lane_width_left >= MIN_LANE_WIDTH:
-      return "left lane (camera)"
-    return None
+    if lanes_ahead is not None and lanes_ahead < 2:
+      return None
+    if left_lane_prob < MIN_LANE_PROB or lane_width_left < MIN_LANE_WIDTH:
+      return None
+    return f"left lane, {lanes_ahead} lanes (map)" if lanes_ahead is not None else "left lane (camera)"
