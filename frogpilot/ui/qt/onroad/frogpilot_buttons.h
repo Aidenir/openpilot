@@ -21,9 +21,10 @@ private:
   bool theme_updated;
   bool traffic_mode_active;
 
+  int current_personality = static_cast<int>(cereal::LongitudinalPersonality::STANDARD);
   int personality;
 
-  Params params_memory{"", true};
+  Params params;
 
   QMap<int, QPair<QPixmap, QSharedPointer<QMovie>>> icon_map;
 

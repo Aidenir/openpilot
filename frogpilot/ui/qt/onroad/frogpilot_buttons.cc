@@ -15,8 +15,11 @@ DrivingPersonalityButton::DrivingPersonalityButton(QWidget *parent) : QPushButto
   setFixedSize(btn_size + UI_BORDER_SIZE, btn_size);
 
   QObject::connect(frogpilotUIState(), &FrogPilotUIState::themeUpdated, this, &DrivingPersonalityButton::updateTheme);
-  QObject::connect(this, &QPushButton::pressed, [this] {params_memory.putBool("OnroadDistanceButtonPressed", true);});
-  QObject::connect(this, &QPushButton::released, [this] {params_memory.putBool("OnroadDistanceButtonPressed", false);});
+  // Steps the personality itself rather than acting as the steering wheel's distance button, which can be set to do
+  // something else (mark a speed bump). Same order as the distance button: relaxed, standard, aggressive
+  QObject::connect(this, &QPushButton::clicked, [this] {
+    params.putIntNonBlocking("LongitudinalPersonality", (current_personality + 2) % 3);
+  });
 }
 
 void DrivingPersonalityButton::showEvent(QShowEvent *event) {
@@ -59,7 +62,8 @@ void DrivingPersonalityButton::updateState(const UIState &s, const FrogPilotUISt
 
   bool new_traffic_mode_active = frogpilotCarState.getTrafficModeEnabled();
 
-  int new_personality = static_cast<int>(scene.personality) + 1;
+  current_personality = static_cast<int>(scene.personality);
+  int new_personality = current_personality + 1;
 
   bool state_changed = (traffic_mode_active != new_traffic_mode_active) ||
                        (personality != new_personality && !new_traffic_mode_active);
