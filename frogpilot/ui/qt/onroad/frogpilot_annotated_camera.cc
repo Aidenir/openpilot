@@ -744,18 +744,16 @@ void FrogPilotAnnotatedCameraWidget::paintCEMStatus(QPainter &p) {
 }
 
 // Under the set speed's neighbour at the top (the CEM status when it's shown there): how the GPS is doing. mapd needs it for road
-// names, speed limits and speed bumps, and on 2026-10-02 it twice went a whole drive without a fix with nothing on screen saying so
+// names, speed limits and speed bumps, and on 2026-10-02 it twice went a whole drive without a fix with nothing on screen saying so.
+// Only shown when the GPS isn't good
 void FrogPilotAnnotatedCameraWidget::paintGpsStatus(QPainter &p) {
-  if (setSpeedRect.isEmpty() || gpsStatus == 0) {
+  if (setSpeedRect.isEmpty() || gpsStatus == 0 || gpsStatus == 4) {
     return;
   }
 
   QColor color;
   QString state;
-  if (gpsStatus == 4) {
-    color = QColor(80, 220, 100);
-    state = tr("good");
-  } else if (gpsStatus == 3) {
+  if (gpsStatus == 3) {
     color = QColor(255, 200, 50);
     state = tr("weak");
   } else if (gpsStatus == 2) {
