@@ -12,10 +12,12 @@ def frozen_ui(monkeypatch):
   p.last_watchdog_time = 0
   events = []
   monkeypatch.setattr(p, "restart", lambda: events.append(("restart", time.monotonic())))
-  def slow_dump(dt, pid=None, exitcode=None, gdb=True):
+  def slow_dump(dt, pid=None, exitcode=None, gdb=True, threads=None):
     time.sleep(0.5)
     events.append(("dump", pid, gdb))
   monkeypatch.setattr(p, "dump_watchdog_diagnostics", slow_dump)
+  # Would signal whatever process has pid 12345
+  monkeypatch.setattr(p, "_snapshot_before_kill", lambda pid: events.append(("snapshot", pid)) or "threads")
   monkeypatch.setattr(process, "ENABLE_WATCHDOG", True)
   return p, events
 
@@ -26,7 +28,7 @@ def test_onroad_restarts_at_once_and_dumps_in_the_background(monkeypatch):
   t = time.monotonic()
   p.check_watchdog(started=True)
   assert time.monotonic() - t < 0.2
-  assert events[0][0] == "restart"
+  assert [e[0] for e in events] == ["snapshot", "restart"]  # the backtrace can only be had before the kill
   time.sleep(0.8)
   assert ("dump", 12345, False) in events
 
