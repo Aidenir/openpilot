@@ -5,7 +5,9 @@ base_libs = [common, messaging, visionipc, transformations,
              'm', 'OpenCL', 'ssl', 'crypto', 'pthread'] + qt_env["LIBS"]
 
 # FrogPilot variables
-base_libs += ['avcodec', 'avformat', 'avutil', 'yuv', 'OmxCore']
+base_libs += ['avcodec', 'avformat', 'avutil', 'yuv']
+if arch == 'larch64':
+  base_libs += ['OmxCore']  # Qualcomm OpenMAX, device only
 
 if arch == 'larch64':
   base_libs.append('EGL')
@@ -56,7 +58,13 @@ frogpilot_src = ["../../frogpilot/ui/frogpilot_ui.cc", "../../frogpilot/ui/qt/of
                  "../../frogpilot/ui/qt/widgets/developer_sidebar.cc", "../../frogpilot/ui/qt/widgets/drive_stats.cc",
                  "../../frogpilot/ui/qt/widgets/drive_summary.cc",
                  "../../frogpilot/ui/qt/widgets/navigation_functions.cc",
-                 "../../frogpilot/ui/screenrecorder/omx_encoder.cc", "../../frogpilot/ui/screenrecorder/screenrecorder.cc"]
+                 ]
+if arch == 'larch64':
+  frogpilot_src += ["../../frogpilot/ui/screenrecorder/omx_encoder.cc", "../../frogpilot/ui/screenrecorder/screenrecorder.cc"]
+else:
+  # No OpenMAX off the device: an empty screen recorder, so the UI builds and links on a PC
+  frogpilot_src += ["../../frogpilot/ui/screenrecorder/screenrecorder_x86_stub.cc",
+                    qt_env.Moc("../../frogpilot/ui/screenrecorder/screenrecorder.h")]
 qt_src += frogpilot_src
 
 # build translation files

@@ -1,5 +1,7 @@
 venv/
 .venv/
+.venv
+selfdrive/ui/ui
 .ci_cache
 .env
 .clang-format
